@@ -82,7 +82,7 @@ function formatBytes(bytes, decimals = 2) {
   const dm = decimals < 0 ? 0 : decimals;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return \`\${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} \${sizes[i]}\`;
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
 // Select folder handler
@@ -143,14 +143,14 @@ if (window.api) {
     const tr = document.createElement('tr');
     
     const tdFile = document.createElement('td');
-    tdFile.innerHTML = \`<div class="file-name">\${file.name}</div><div class="file-path">\${file.path}</div>\`;
+    tdFile.innerHTML = `<div class="file-name">${file.name}</div><div class="file-path">${file.path}</div>`;
     
     const tdSize = document.createElement('td');
     tdSize.textContent = formatBytes(file.size);
     
     const tdDate = document.createElement('td');
     const date = new Date(file.lastUsedMs);
-    tdDate.textContent = \`\${date.toLocaleDateString()} (\${Math.floor(file.daysUnused)} days ago)\`;
+    tdDate.textContent = `${date.toLocaleDateString()} (${Math.floor(file.daysUnused)} days ago)`;
     
     const tdAction = document.createElement('td');
     const btnOpen = document.createElement('button');
@@ -176,7 +176,7 @@ if (window.api) {
 }
 
 function updateStats() {
-  scanStats.textContent = \`\${foundFiles.length} files found (Total: \${formatBytes(totalSize)})\`;
+  scanStats.textContent = `${foundFiles.length} files found (Total: ${formatBytes(totalSize)})`;
 }
 
 function finishScan() {
