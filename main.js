@@ -64,6 +64,23 @@ ipcMain.handle('shell:openFolder', async (event, folderPath) => {
   shell.showItemInFolder(folderPath);
 });
 
+ipcMain.handle('shell:openFile', async (event, filePath) => {
+  shell.openPath(filePath);
+});
+
+ipcMain.handle('file:trash', async (event, filePaths) => {
+  const results = [];
+  for (const p of filePaths) {
+    try {
+      await shell.trashItem(p);
+      results.push({ path: p, success: true });
+    } catch (e) {
+      results.push({ path: p, success: false, error: e.message });
+    }
+  }
+  return results;
+});
+
 // Scanner state
 let isScanning = false;
 
@@ -74,6 +91,8 @@ ipcMain.handle('scan:start', async (event, { folderPath, minSizeMB, minDaysUnuse
   const minSizeBytes = minSizeMB * 1024 * 1024;
   const now = Date.now();
   const minDaysMs = minDaysUnused * 24 * 60 * 60 * 1000;
+  
+  let filesScanned = 0;
 
   async function scanDirectory(dir) {
     if (!isScanning) return;
@@ -81,6 +100,11 @@ ipcMain.handle('scan:start', async (event, { folderPath, minSizeMB, minDaysUnuse
       const entries = await fs.readdir(dir, { withFileTypes: true });
       for (const entry of entries) {
         if (!isScanning) return;
+        filesScanned++;
+        if (filesScanned % 1000 === 0) {
+          mainWindow.webContents.send('scan:progress', { scanned: filesScanned });
+        }
+        
         const fullPath = path.join(dir, entry.name);
         try {
           if (entry.isDirectory()) {

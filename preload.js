@@ -5,6 +5,9 @@ contextBridge.exposeInMainWorld('api', {
   openFolder: (path) => ipcRenderer.invoke('shell:openFolder', path),
   startScan: (options) => ipcRenderer.invoke('scan:start', options),
   stopScan: () => ipcRenderer.invoke('scan:stop'),
+  trashFiles: (paths) => ipcRenderer.invoke('file:trash', paths),
+  openFile: (path) => ipcRenderer.invoke('shell:openFile', path),
   onScanResult: (callback) => ipcRenderer.on('scan:result', (_event, value) => callback(value)),
-  onScanComplete: (callback) => ipcRenderer.on('scan:complete', () => callback())
+  onScanComplete: (callback) => ipcRenderer.on('scan:complete', () => callback()),
+  onScanProgress: (callback) => ipcRenderer.on('scan:progress', (_event, value) => callback(value))
 });

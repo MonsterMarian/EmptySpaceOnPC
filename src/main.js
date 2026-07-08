@@ -3,10 +3,16 @@ import './style.css';
 document.querySelector('#app').innerHTML = `
   <header>
     <h1>SpaceFinder Premium</h1>
-    <p class="subtitle">Find and remove large unused files to free up space</p>
+    <p class="subtitle">Find and safely remove large unused files to free up space</p>
   </header>
 
   <section class="panel">
+    <div class="presets-bar">
+      <button class="preset-btn" data-preset="videos">Forgotten Videos (>500MB)</button>
+      <button class="preset-btn" data-preset="installers">Old Installers (>100MB)</button>
+      <button class="preset-btn" data-preset="huge">Huge Files (>1GB, 90 Days)</button>
+    </div>
+
     <div class="controls-grid">
       <div class="input-group">
         <label for="folder-path">Folder to scan</label>
@@ -29,6 +35,7 @@ document.querySelector('#app').innerHTML = `
       </div>
       
       <div class="input-group" style="align-items: center; justify-content: flex-end; flex-direction: row; gap: 1rem;">
+        <span class="scan-progress" id="scan-progress"></span>
         <div class="loader" id="loader"></div>
         <button id="btn-start">Start Scan</button>
       </div>
@@ -45,6 +52,7 @@ document.querySelector('#app').innerHTML = `
       <table>
         <thead>
           <tr>
+            <th class="checkbox-cell"><input type="checkbox" id="select-all" /></th>
             <th>File</th>
             <th>Size</th>
             <th>Last Used</th>
@@ -56,6 +64,10 @@ document.querySelector('#app').innerHTML = `
         </tbody>
       </table>
     </div>
+    
+    <div class="bottom-actions">
+      <button id="btn-delete-selected" class="danger" disabled>Delete Selected</button>
+    </div>
   </section>
 `;
 
@@ -63,6 +75,7 @@ document.querySelector('#app').innerHTML = `
 let isScanning = false;
 let foundFiles = [];
 let totalSize = 0;
+let selectedPaths = new Set();
 
 // Elements
 const folderPathInput = document.getElementById('folder-path');
@@ -71,9 +84,30 @@ const minSizeInput = document.getElementById('min-size');
 const minDaysInput = document.getElementById('min-days');
 const btnStart = document.getElementById('btn-start');
 const loader = document.getElementById('loader');
+const scanProgress = document.getElementById('scan-progress');
 const resultsPanel = document.getElementById('results-panel');
 const resultsBody = document.getElementById('results-body');
 const scanStats = document.getElementById('scan-stats');
+const selectAllCheckbox = document.getElementById('select-all');
+const btnDeleteSelected = document.getElementById('btn-delete-selected');
+
+// Load preferences
+window.addEventListener('DOMContentLoaded', () => {
+  const savedFolder = localStorage.getItem('sf-folder');
+  const savedSize = localStorage.getItem('sf-size');
+  const savedDays = localStorage.getItem('sf-days');
+  if (savedFolder) folderPathInput.value = savedFolder;
+  if (savedSize) minSizeInput.value = savedSize;
+  if (savedDays) minDaysInput.value = savedDays;
+});
+
+// Save preferences on change
+function savePrefs() {
+  localStorage.setItem('sf-folder', folderPathInput.value);
+  localStorage.setItem('sf-size', minSizeInput.value);
+  localStorage.setItem('sf-days', minDaysInput.value);
+}
+[folderPathInput, minSizeInput, minDaysInput].forEach(el => el.addEventListener('change', savePrefs));
 
 // Format size helper
 function formatBytes(bytes, decimals = 2) {
@@ -85,12 +119,44 @@ function formatBytes(bytes, decimals = 2) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
+// Safety check helper
+function getSafetyInfo(filePath) {
+  const lowerPath = filePath.toLowerCase();
+  const isSystem = lowerPath.includes('\\windows\\') || 
+                   lowerPath.includes('\\program files') || 
+                   lowerPath.includes('\\appdata\\');
+  
+  if (isSystem) {
+    return { class: 'warning', text: 'SYSTEM (UNSAFE)' };
+  }
+  return { class: 'safe', text: 'SAFE' };
+}
+
+// Presets
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const preset = btn.dataset.preset;
+    if (preset === 'videos') {
+      minSizeInput.value = '500';
+      minDaysInput.value = '60';
+    } else if (preset === 'installers') {
+      minSizeInput.value = '100';
+      minDaysInput.value = '30';
+    } else if (preset === 'huge') {
+      minSizeInput.value = '1024';
+      minDaysInput.value = '90';
+    }
+    savePrefs();
+  });
+});
+
 // Select folder handler
 btnSelectFolder.addEventListener('click', async () => {
   if (window.api) {
     const selected = await window.api.selectFolder();
     if (selected) {
       folderPathInput.value = selected;
+      savePrefs();
     }
   } else {
     alert("API not found, run in Electron!");
@@ -105,23 +171,25 @@ btnStart.addEventListener('click', async () => {
   }
 
   if (isScanning) {
-    // Stop
     await window.api.stopScan();
     finishScan();
     return;
   }
 
-  // Start
   isScanning = true;
   foundFiles = [];
   totalSize = 0;
+  selectedPaths.clear();
+  updateDeleteBtn();
   
   btnStart.textContent = 'Stop Scan';
   btnStart.classList.add('danger');
   loader.style.display = 'block';
+  scanProgress.textContent = '';
   
   resultsPanel.style.display = 'block';
   resultsBody.innerHTML = '';
+  selectAllCheckbox.checked = false;
   updateStats();
   
   const options = {
@@ -133,34 +201,118 @@ btnStart.addEventListener('click', async () => {
   await window.api.startScan(options);
 });
 
-// Handle incoming scan results
+// Delete files wrapper
+async function deleteFiles(paths) {
+  if (paths.length === 0) return;
+  const msg = `Move ${paths.length} file(s) to the Recycle Bin?`;
+  if (!confirm(msg)) return;
+  
+  const results = await window.api.trashFiles(paths);
+  
+  // Remove successful deletes from UI
+  results.forEach(res => {
+    if (res.success) {
+      const idx = foundFiles.findIndex(f => f.path === res.path);
+      if (idx !== -1) {
+        totalSize -= foundFiles[idx].size;
+        foundFiles.splice(idx, 1);
+      }
+      selectedPaths.delete(res.path);
+      // Remove row
+      const row = document.getElementById('row-' + btoa(unescape(encodeURIComponent(res.path))).replace(/=/g, ''));
+      if (row) row.remove();
+    } else {
+      console.error("Failed to trash:", res.path, res.error);
+    }
+  });
+  
+  updateStats();
+  updateDeleteBtn();
+}
+
+btnDeleteSelected.addEventListener('click', () => {
+  deleteFiles(Array.from(selectedPaths));
+});
+
+selectAllCheckbox.addEventListener('change', (e) => {
+  const isChecked = e.target.checked;
+  document.querySelectorAll('.row-checkbox').forEach(cb => {
+    cb.checked = isChecked;
+    const path = cb.dataset.path;
+    if (isChecked) selectedPaths.add(path);
+    else selectedPaths.delete(path);
+  });
+  updateDeleteBtn();
+});
+
+function updateDeleteBtn() {
+  btnDeleteSelected.disabled = selectedPaths.size === 0;
+  btnDeleteSelected.textContent = `Delete Selected (${selectedPaths.size})`;
+}
+
 if (window.api) {
+  window.api.onScanProgress(({ scanned }) => {
+    scanProgress.textContent = `Scanned ${scanned.toLocaleString()} files...`;
+  });
+
   window.api.onScanResult((file) => {
     foundFiles.push(file);
     totalSize += file.size;
     
-    // Create row
+    const rowId = 'row-' + btoa(unescape(encodeURIComponent(file.path))).replace(/=/g, '');
     const tr = document.createElement('tr');
+    tr.id = rowId;
     
+    // Checkbox
+    const tdCheck = document.createElement('td');
+    tdCheck.className = 'checkbox-cell';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'row-checkbox';
+    cb.dataset.path = file.path;
+    cb.addEventListener('change', (e) => {
+      if (e.target.checked) selectedPaths.add(file.path);
+      else selectedPaths.delete(file.path);
+      updateDeleteBtn();
+    });
+    tdCheck.appendChild(cb);
+    
+    // File Info
     const tdFile = document.createElement('td');
-    tdFile.innerHTML = `<div class="file-name">${file.name}</div><div class="file-path">${file.path}</div>`;
+    const safeInfo = getSafetyInfo(file.path);
+    tdFile.innerHTML = `
+      <div class="file-name" title="Click to open file" onclick="window.api.openFile('${file.path.replace(/\\/g, '\\\\')}')">
+        ${file.name} <span class="badge ${safeInfo.class}">${safeInfo.text}</span>
+      </div>
+      <div class="file-path">${file.path}</div>
+    `;
     
+    // Size
     const tdSize = document.createElement('td');
     tdSize.textContent = formatBytes(file.size);
     
+    // Date
     const tdDate = document.createElement('td');
     const date = new Date(file.lastUsedMs);
     tdDate.textContent = `${date.toLocaleDateString()} (${Math.floor(file.daysUnused)} days ago)`;
     
+    // Action
     const tdAction = document.createElement('td');
+    
     const btnOpen = document.createElement('button');
     btnOpen.className = 'secondary action-btn';
-    btnOpen.textContent = 'Open Folder';
-    btnOpen.onclick = () => {
-      window.api.openFolder(file.path);
-    };
-    tdAction.appendChild(btnOpen);
+    btnOpen.textContent = 'Folder';
+    btnOpen.onclick = () => window.api.openFolder(file.path);
     
+    const btnDel = document.createElement('button');
+    btnDel.className = 'danger action-btn';
+    btnDel.textContent = 'Delete';
+    btnDel.onclick = () => deleteFiles([file.path]);
+    
+    tdAction.appendChild(btnOpen);
+    tdAction.appendChild(btnDel);
+    
+    tr.appendChild(tdCheck);
     tr.appendChild(tdFile);
     tr.appendChild(tdSize);
     tr.appendChild(tdDate);
@@ -184,4 +336,5 @@ function finishScan() {
   btnStart.textContent = 'Start Scan';
   btnStart.classList.remove('danger');
   loader.style.display = 'none';
+  scanProgress.textContent = '';
 }
