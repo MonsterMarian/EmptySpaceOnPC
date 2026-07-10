@@ -159,7 +159,7 @@ ipcMain.handle('scan:duplicates', async (event, folderPath) => {
   let filesScanned = 0;
   const sizeMap = new Map();
 
-  async function scanForSizes(dir) {
+  async function groupFilesByByteSize(dir) {
     if (!isScanning) return;
     try {
       const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -173,7 +173,7 @@ ipcMain.handle('scan:duplicates', async (event, folderPath) => {
         const fullPath = path.join(dir, entry.name);
         try {
           if (entry.isDirectory()) {
-            await scanForSizes(fullPath);
+            await groupFilesByByteSize(fullPath);
           } else if (entry.isFile()) {
             const stats = await fs.stat(fullPath);
             if (stats.size > 0) {
@@ -189,7 +189,7 @@ ipcMain.handle('scan:duplicates', async (event, folderPath) => {
   }
 
   try {
-    await scanForSizes(folderPath);
+    await groupFilesByByteSize(folderPath);
     
     // Only keep sizes with > 1 file
     const potentialDuplicates = Array.from(sizeMap.values()).filter(group => group.length > 1);
@@ -201,7 +201,7 @@ ipcMain.handle('scan:duplicates', async (event, folderPath) => {
       for (const file of group) {
         if (!isScanning) break;
         try {
-          const hash = await hashFile(file.path);
+          const hash = await calculateSha256Hash(file.path);
           if (!hashMap.has(hash)) hashMap.set(hash, []);
           hashMap.get(hash).push(file);
         } catch (e) {}
@@ -220,7 +220,7 @@ ipcMain.handle('scan:duplicates', async (event, folderPath) => {
   }
 });
 
-function hashFile(filePath) {
+function calculateSha256Hash(filePath) {
   return new Promise((resolve, reject) => {
     const hash = crypto.createHash('sha256');
     const stream = fsSync.createReadStream(filePath);
@@ -244,7 +244,7 @@ ipcMain.handle('scan:junk', async () => {
     { type: 'NPM Cache', path: path.join(homeDir, 'AppData', 'Local', 'npm-cache') }
   ];
 
-  async function getFolderSize(dirPath) {
+  async function calculateDirectoryTotalSize(dirPath) {
     let totalSize = 0;
     try {
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -253,7 +253,7 @@ ipcMain.handle('scan:junk', async () => {
         const fullPath = path.join(dirPath, entry.name);
         try {
           if (entry.isDirectory()) {
-            totalSize += await getFolderSize(fullPath);
+            totalSize += await calculateDirectoryTotalSize(fullPath);
           } else {
             const stats = await fs.stat(fullPath);
             totalSize += stats.size;
@@ -267,7 +267,7 @@ ipcMain.handle('scan:junk', async () => {
   try {
     for (const target of junkPaths) {
       if (!isScanning) break;
-      const size = await getFolderSize(target.path);
+      const size = await calculateDirectoryTotalSize(target.path);
       if (size > 0) {
         mainWindow.webContents.send('scan:junkResult', { type: target.type, path: target.path, size });
       }

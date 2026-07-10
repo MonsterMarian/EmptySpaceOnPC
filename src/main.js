@@ -44,7 +44,10 @@ document.querySelector('#app').innerHTML = `
           <input type="number" id="min-days" value="30" min="0" />
         </div>
         
-        <div class="input-group" style="align-items: center; justify-content: flex-end; flex-direction: row; gap: 1rem;">
+      <!-- Action Bar -->
+      <div class="action-bar" style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="flex:1;"></div> <!-- Spacer -->
+        <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
           <span class="scan-progress" id="scan-progress"></span>
           <div class="loader" id="loader"></div>
           <button id="btn-start">Start Scan</button>
@@ -95,13 +98,17 @@ document.querySelector('#app').innerHTML = `
   <!-- TAB 2: Duplicate Finder -->
   <div id="tab-duplicates" class="tab-content">
     <section class="panel">
-      <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 1rem;">
+      <!-- Action Bar -->
+      <div class="action-bar" style="display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 1rem;">
         <p>Select a folder to scan for identical duplicate files.</p>
-        <button id="btn-scan-dupes">Scan for Duplicates</button>
+        <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
+          <span class="scan-progress" id="dupe-progress"></span>
+          <div class="loader" id="dupe-loader"></div>
+          <button id="btn-scan-dupes">Scan for Duplicates</button>
+        </div>
       </div>
-      <div class="loader" id="dupe-loader"></div>
-      <span class="scan-progress" id="dupe-progress"></span>
-      <div id="dupe-results"></div>
+
+      <div id="dupe-results" style="margin-top: 1rem;"></div>
       <div class="bottom-actions" style="margin-top:1rem;">
         <button id="btn-delete-dupes" class="danger" style="display:none;">Delete Selected Duplicates</button>
       </div>
@@ -111,12 +118,16 @@ document.querySelector('#app').innerHTML = `
   <!-- TAB 3: Junk Cleaner -->
   <div id="tab-junk" class="tab-content">
     <section class="panel">
-      <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 1rem;">
+      <!-- Action Bar -->
+      <div class="action-bar" style="display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 1rem;">
         <p>Scan system paths (Windows Temp, AppData caches) for safely removable junk.</p>
-        <button id="btn-scan-junk">Scan System Junk</button>
+        <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
+          <div class="loader" id="junk-loader"></div>
+          <button id="btn-scan-junk">Scan System Junk</button>
+        </div>
       </div>
-      <div class="loader" id="junk-loader"></div>
-      <div class="table-container" id="junk-table-container" style="display:none;">
+      
+      <div class="table-container" id="junk-table-container" style="display:none; margin-top: 1rem;">
         <table>
           <thead>
             <tr>
@@ -182,7 +193,7 @@ const selectAllCheckbox = document.getElementById('select-all');
 const btnDeleteSelected = document.getElementById('btn-delete-selected');
 const chartContainer = document.getElementById('chart-container');
 
-const getCategory = (filename) => {
+const getFileCategoryName = (filename) => {
   const ext = filename.split('.').pop().toLowerCase();
   const video = ['mp4','mkv','avi','mov'];
   const image = ['jpg','jpeg','png','gif'];
@@ -198,7 +209,7 @@ const getCategory = (filename) => {
   return 'Other';
 };
 
-function getSafetyInfo(filePath) {
+function checkSystemFileSafety(filePath) {
   const lowerPath = filePath.toLowerCase();
   const isSystem = lowerPath.includes('\\windows\\') || 
                    lowerPath.includes('\\program files') || 
@@ -213,10 +224,10 @@ window.addEventListener('DOMContentLoaded', () => {
   if (savedFolder) folderPathInput.value = savedFolder;
 });
 
-function savePrefs() {
+function saveUserSettingsToLocal() {
   localStorage.setItem('sf-folder', folderPathInput.value);
 }
-folderPathInput.addEventListener('change', savePrefs);
+folderPathInput.addEventListener('change', saveUserSettingsToLocal);
 
 document.querySelectorAll('.preset-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -230,19 +241,19 @@ document.querySelectorAll('.preset-btn').forEach(btn => {
 btnSelectFolder.addEventListener('click', async () => {
   if (window.api) {
     const selected = await window.api.selectFolder();
-    if (selected) { folderPathInput.value = selected; savePrefs(); }
+    if (selected) { folderPathInput.value = selected; saveUserSettingsToLocal(); }
   }
 });
 
 btnStart.addEventListener('click', async () => {
   if (!window.api) return;
-  if (isScanning) { await window.api.stopScan(); finishScan(); return; }
+  if (isScanning) { await window.api.stopScan(); finalizeDiskScanProcess(); return; }
 
   isScanning = true; foundFiles = []; totalSize = 0; selectedPaths.clear(); updateDeleteBtn();
   btnStart.textContent = 'Stop Scan'; btnStart.classList.add('danger');
-  loader.style.display = 'block'; scanProgress.textContent = '';
+  loader.style.display = 'block'; scanProgress.textContent = 'Starting scan...';
   resultsPanel.style.display = 'block'; chartContainer.style.display = 'none';
-  resultsBody.innerHTML = ''; selectAllCheckbox.checked = false; updateStats();
+  resultsBody.innerHTML = ''; selectAllCheckbox.checked = false; refreshDiskScanStats();
   
   await window.api.startScan({
     folderPath: folderPathInput.value,
@@ -251,7 +262,7 @@ btnStart.addEventListener('click', async () => {
   });
 });
 
-async function deleteFiles(paths, callback) {
+async function moveSelectedFilesToTrash(paths, callback) {
   if (paths.length === 0) return;
   if (!confirm(`Move ${paths.length} file(s) to the Recycle Bin?`)) return;
   const results = await window.api.trashFiles(paths);
@@ -259,7 +270,7 @@ async function deleteFiles(paths, callback) {
 }
 
 btnDeleteSelected.addEventListener('click', () => {
-  deleteFiles(Array.from(selectedPaths), (results) => {
+  moveSelectedFilesToTrash(Array.from(selectedPaths), (results) => {
     results.forEach(res => {
       if (res.success) {
         const idx = foundFiles.findIndex(f => f.path === res.path);
@@ -269,7 +280,7 @@ btnDeleteSelected.addEventListener('click', () => {
         if (row) row.remove();
       }
     });
-    updateStats(); updateDeleteBtn(); updateChart();
+    refreshDiskScanStats(); updateDeleteBtn(); refreshVisualCharts();
   });
 });
 
@@ -288,7 +299,7 @@ function updateDeleteBtn() {
   btnDeleteSelected.textContent = `Delete Selected (${selectedPaths.size})`;
 }
 
-function updateChart() {
+function refreshVisualCharts() {
   if (foundFiles.length === 0) {
     chartContainer.style.display = 'none';
     return;
@@ -387,15 +398,15 @@ function updateChart() {
   });
 }
 
-function updateStats() {
+function refreshDiskScanStats() {
   scanStats.textContent = `${foundFiles.length} files found (Total: ${formatBytes(totalSize)})`;
 }
 
-function finishScan() {
+function finalizeDiskScanProcess() {
   isScanning = false;
   btnStart.textContent = 'Start Scan'; btnStart.classList.remove('danger');
   loader.style.display = 'none'; scanProgress.textContent = '';
-  updateChart();
+  refreshVisualCharts();
 }
 
 if (window.api) {
@@ -405,7 +416,7 @@ if (window.api) {
   });
 
   window.api.onScanResult((file) => {
-    file.category = getCategory(file.name);
+    file.category = getFileCategoryName(file.name);
     foundFiles.push(file);
     totalSize += file.size;
     
@@ -413,7 +424,7 @@ if (window.api) {
     const tr = document.createElement('tr');
     tr.id = rowId;
     
-    const safeInfo = getSafetyInfo(file.path);
+    const safeInfo = checkSystemFileSafety(file.path);
     tr.innerHTML = `
       <td class="checkbox-cell"><input type="checkbox" class="row-checkbox" data-path="${file.path.replace(/"/g, '&quot;')}" /></td>
       <td>
@@ -436,11 +447,11 @@ if (window.api) {
     });
     
     resultsBody.appendChild(tr);
-    updateStats();
+    refreshDiskScanStats();
   });
 
   window.api.onScanComplete(() => {
-    finishScan();
+    finalizeDiskScanProcess();
     document.getElementById('dupe-loader').style.display = 'none';
     document.getElementById('junk-loader').style.display = 'none';
     document.getElementById('dupe-progress').textContent = '';
@@ -492,17 +503,17 @@ if (window.api) {
     });
     
     dupeResults.appendChild(div);
-    updateDupeDeleteBtn();
+    refreshDuplicateDeleteButton();
   });
 }
 
-function updateDupeDeleteBtn() {
+function refreshDuplicateDeleteButton() {
   btnDeleteDupes.style.display = duplicatePaths.size > 0 ? 'inline-block' : 'none';
   btnDeleteDupes.textContent = `Delete Selected Duplicates (${duplicatePaths.size})`;
 }
 
 btnDeleteDupes.addEventListener('click', () => {
-  deleteFiles(Array.from(duplicatePaths), (results) => {
+  moveSelectedFilesToTrash(Array.from(duplicatePaths), (results) => {
     results.forEach(res => {
       if (res.success) {
         duplicatePaths.delete(res.path);
@@ -510,7 +521,7 @@ btnDeleteDupes.addEventListener('click', () => {
         if (checkbox) checkbox.parentElement.parentElement.remove();
       }
     });
-    updateDupeDeleteBtn();
+    refreshDuplicateDeleteButton();
   });
 });
 
@@ -547,7 +558,7 @@ if (window.api) {
     `;
     tr.querySelector('.junk-cb').addEventListener('change', (e) => {
       if (e.target.checked) junkPaths.add(path); else junkPaths.delete(path);
-      updateJunkDeleteBtn();
+      refreshJunkDeleteButton();
     });
     junkResultsBody.appendChild(tr);
   });
@@ -560,17 +571,17 @@ junkSelectAll.addEventListener('change', (e) => {
     const p = cb.dataset.path;
     if (isChecked) junkPaths.add(p); else junkPaths.delete(p);
   });
-  updateJunkDeleteBtn();
+  refreshJunkDeleteButton();
 });
 
-function updateJunkDeleteBtn() {
+function refreshJunkDeleteButton() {
   btnDeleteJunk.style.display = junkPaths.size > 0 ? 'inline-block' : 'none';
   btnDeleteJunk.textContent = `Delete Selected Junk (${junkPaths.size})`;
 }
 
 btnDeleteJunk.addEventListener('click', () => {
   // Caution: We're sending a folder to be trashed. shell.trashItem handles folders too.
-  deleteFiles(Array.from(junkPaths), (results) => {
+  moveSelectedFilesToTrash(Array.from(junkPaths), (results) => {
     results.forEach(res => {
       if (res.success) {
         junkPaths.delete(res.path);
@@ -578,6 +589,6 @@ btnDeleteJunk.addEventListener('click', () => {
         if (cb) cb.parentElement.parentElement.remove();
       }
     });
-    updateJunkDeleteBtn();
+    refreshJunkDeleteButton();
   });
 });
