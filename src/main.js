@@ -11,9 +11,9 @@ document.querySelector('#app').innerHTML = `
   </header>
 
   <div class="tabs">
-    <div class="tab active" data-target="tab-scanner">Disk Scanner</div>
+    <div class="tab active" data-target="tab-scanner">Large File Scanner</div>
     <div class="tab" data-target="tab-duplicates">Duplicate Finder</div>
-    <div class="tab" data-target="tab-junk">System Junk</div>
+    <div class="tab" data-target="tab-junk">System Junk Cleaner</div>
   </div>
 
   <!-- TAB 1: Disk Scanner -->
@@ -30,7 +30,7 @@ document.querySelector('#app').innerHTML = `
           <label for="folder-path">Folder to scan</label>
           <div style="display: flex; gap: 0.5rem;">
             <input type="text" id="folder-path" value="C:\\" readonly style="flex: 1;" />
-            <button id="btn-select-folder" class="secondary" title="Select Folder">Select</button>
+            <button id="btn-select-folder" class="secondary" title="Select Folder">Choose Folder...</button>
           </div>
         </div>
         
@@ -50,7 +50,7 @@ document.querySelector('#app').innerHTML = `
         <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
           <span class="scan-progress" id="scan-progress"></span>
           <div class="loader" id="loader"></div>
-          <button id="btn-start">Start Scan</button>
+          <button id="btn-start">Find Large Files</button>
         </div>
       </div>
     </section>
@@ -90,7 +90,7 @@ document.querySelector('#app').innerHTML = `
       </div>
       
       <div class="bottom-actions">
-        <button id="btn-delete-selected" class="danger" disabled>Delete Selected</button>
+        <button id="btn-delete-selected" class="danger" disabled>Move to Recycle Bin</button>
       </div>
     </section>
   </div>
@@ -104,13 +104,13 @@ document.querySelector('#app').innerHTML = `
         <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
           <span class="scan-progress" id="dupe-progress"></span>
           <div class="loader" id="dupe-loader"></div>
-          <button id="btn-scan-dupes">Scan for Duplicates</button>
+          <button id="btn-scan-dupes">Find Identical Duplicates</button>
         </div>
       </div>
 
       <div id="dupe-results" style="margin-top: 1rem;"></div>
       <div class="bottom-actions" style="margin-top:1rem;">
-        <button id="btn-delete-dupes" class="danger" style="display:none;">Delete Selected Duplicates</button>
+        <button id="btn-delete-dupes" class="danger" style="display:none;">Trash Selected Duplicates</button>
       </div>
     </section>
   </div>
@@ -123,7 +123,7 @@ document.querySelector('#app').innerHTML = `
         <p>Scan system paths (Windows Temp, AppData caches) for safely removable junk.</p>
         <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
           <div class="loader" id="junk-loader"></div>
-          <button id="btn-scan-junk">Scan System Junk</button>
+          <button id="btn-scan-junk">Analyze System Caches</button>
         </div>
       </div>
       
@@ -141,7 +141,7 @@ document.querySelector('#app').innerHTML = `
         </table>
       </div>
       <div class="bottom-actions">
-        <button id="btn-delete-junk" class="danger" style="display:none;">Delete Selected Junk</button>
+        <button id="btn-delete-junk" class="danger" style="display:none;">Clean Selected Junk</button>
       </div>
     </section>
   </div>
@@ -250,8 +250,8 @@ btnStart.addEventListener('click', async () => {
   if (isScanning) { await window.api.stopScan(); finalizeDiskScanProcess(); return; }
 
   isScanning = true; foundFiles = []; totalSize = 0; selectedPaths.clear(); updateDeleteBtn();
-  btnStart.textContent = 'Stop Scan'; btnStart.classList.add('danger');
-  loader.style.display = 'block'; scanProgress.textContent = 'Starting scan...';
+  btnStart.textContent = 'Cancel Scan'; btnStart.classList.add('danger');
+  loader.style.display = 'block'; scanProgress.textContent = 'Analyzing disk...';
   resultsPanel.style.display = 'block'; chartContainer.style.display = 'none';
   resultsBody.innerHTML = ''; selectAllCheckbox.checked = false; refreshDiskScanStats();
   
@@ -296,7 +296,7 @@ selectAllCheckbox.addEventListener('change', (e) => {
 
 function updateDeleteBtn() {
   btnDeleteSelected.disabled = selectedPaths.size === 0;
-  btnDeleteSelected.textContent = `Delete Selected (${selectedPaths.size})`;
+  btnDeleteSelected.textContent = `Move to Recycle Bin (${selectedPaths.size})`;
 }
 
 function refreshVisualCharts() {
@@ -404,7 +404,7 @@ function refreshDiskScanStats() {
 
 function finalizeDiskScanProcess() {
   isScanning = false;
-  btnStart.textContent = 'Start Scan'; btnStart.classList.remove('danger');
+  btnStart.textContent = 'Find Large Files'; btnStart.classList.remove('danger');
   loader.style.display = 'none'; scanProgress.textContent = '';
   refreshVisualCharts();
 }
@@ -437,7 +437,7 @@ if (window.api) {
       <td>${file.category}</td>
       <td>${Math.floor(file.daysUnused)} days ago</td>
       <td>
-        <button class="secondary action-btn" onclick="window.api.openFolder('${file.path.replace(/\\/g, '\\\\')}')">Folder</button>
+        <button class="secondary action-btn" onclick="window.api.openFolder('${file.path.replace(/\\/g, '\\\\')}')">Open Folder</button>
       </td>
     `;
     
@@ -509,7 +509,7 @@ if (window.api) {
 
 function refreshDuplicateDeleteButton() {
   btnDeleteDupes.style.display = duplicatePaths.size > 0 ? 'inline-block' : 'none';
-  btnDeleteDupes.textContent = `Delete Selected Duplicates (${duplicatePaths.size})`;
+  btnDeleteDupes.textContent = `Trash Selected Duplicates (${duplicatePaths.size})`;
 }
 
 btnDeleteDupes.addEventListener('click', () => {
@@ -576,7 +576,7 @@ junkSelectAll.addEventListener('change', (e) => {
 
 function refreshJunkDeleteButton() {
   btnDeleteJunk.style.display = junkPaths.size > 0 ? 'inline-block' : 'none';
-  btnDeleteJunk.textContent = `Delete Selected Junk (${junkPaths.size})`;
+  btnDeleteJunk.textContent = `Clean Selected Junk (${junkPaths.size})`;
 }
 
 btnDeleteJunk.addEventListener('click', () => {
