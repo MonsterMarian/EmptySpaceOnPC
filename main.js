@@ -1,7 +1,10 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
+import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -148,3 +151,130 @@ ipcMain.handle('scan:start', async (event, { folderPath, minSizeMB, minDaysUnuse
 ipcMain.handle('scan:stop', () => {
   isScanning = false;
 });
+
+// Duplicates Scanner
+ipcMain.handle('scan:duplicates', async (event, folderPath) => {
+  if (isScanning) return;
+  isScanning = true;
+  let filesScanned = 0;
+  const sizeMap = new Map();
+
+  async function scanForSizes(dir) {
+    if (!isScanning) return;
+    try {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!isScanning) return;
+        filesScanned++;
+        if (filesScanned % 1000 === 0) {
+          mainWindow.webContents.send('scan:progress', { scanned: filesScanned });
+        }
+        
+        const fullPath = path.join(dir, entry.name);
+        try {
+          if (entry.isDirectory()) {
+            await scanForSizes(fullPath);
+          } else if (entry.isFile()) {
+            const stats = await fs.stat(fullPath);
+            if (stats.size > 0) {
+              if (!sizeMap.has(stats.size)) {
+                sizeMap.set(stats.size, []);
+              }
+              sizeMap.get(stats.size).push({ path: fullPath, size: stats.size, name: entry.name });
+            }
+          }
+        } catch (err) {}
+      }
+    } catch (err) {}
+  }
+
+  try {
+    await scanForSizes(folderPath);
+    
+    // Only keep sizes with > 1 file
+    const potentialDuplicates = Array.from(sizeMap.values()).filter(group => group.length > 1);
+    
+    // Hash them to confirm
+    for (const group of potentialDuplicates) {
+      if (!isScanning) break;
+      const hashMap = new Map();
+      for (const file of group) {
+        if (!isScanning) break;
+        try {
+          const hash = await hashFile(file.path);
+          if (!hashMap.has(hash)) hashMap.set(hash, []);
+          hashMap.get(hash).push(file);
+        } catch (e) {}
+      }
+      
+      // Send actual duplicates to frontend
+      for (const [hash, identicalFiles] of hashMap.entries()) {
+        if (identicalFiles.length > 1) {
+          mainWindow.webContents.send('scan:duplicateResult', { hash, files: identicalFiles });
+        }
+      }
+    }
+  } finally {
+    isScanning = false;
+    mainWindow.webContents.send('scan:complete');
+  }
+});
+
+function hashFile(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = fsSync.createReadStream(filePath);
+    stream.on('data', data => hash.update(data));
+    stream.on('end', () => resolve(hash.digest('hex')));
+    stream.on('error', err => reject(err));
+  });
+}
+
+// Junk Scanner
+ipcMain.handle('scan:junk', async () => {
+  if (isScanning) return;
+  isScanning = true;
+  
+  const homeDir = os.homedir();
+  const junkPaths = [
+    { type: 'Windows Temp', path: path.join(process.env.windir || 'C:\\Windows', 'Temp') },
+    { type: 'Local Temp', path: path.join(os.tmpdir()) },
+    { type: 'Chrome Cache', path: path.join(homeDir, 'AppData', 'Local', 'Google', 'Chrome', 'User Data', 'Default', 'Cache', 'Cache_Data') },
+    { type: 'Edge Cache', path: path.join(homeDir, 'AppData', 'Local', 'Microsoft', 'Edge', 'User Data', 'Default', 'Cache', 'Cache_Data') },
+    { type: 'NPM Cache', path: path.join(homeDir, 'AppData', 'Local', 'npm-cache') }
+  ];
+
+  async function getFolderSize(dirPath) {
+    let totalSize = 0;
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!isScanning) return totalSize;
+        const fullPath = path.join(dirPath, entry.name);
+        try {
+          if (entry.isDirectory()) {
+            totalSize += await getFolderSize(fullPath);
+          } else {
+            const stats = await fs.stat(fullPath);
+            totalSize += stats.size;
+          }
+        } catch (err) {}
+      }
+    } catch (err) {}
+    return totalSize;
+  }
+
+  try {
+    for (const target of junkPaths) {
+      if (!isScanning) break;
+      const size = await getFolderSize(target.path);
+      if (size > 0) {
+        mainWindow.webContents.send('scan:junkResult', { type: target.type, path: target.path, size });
+      }
+    }
+  } finally {
+    isScanning = false;
+    mainWindow.webContents.send('scan:complete');
+  }
+});
+

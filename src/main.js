@@ -1,83 +1,164 @@
 import './style.css';
+import Chart from 'chart.js/auto';
 
 document.querySelector('#app').innerHTML = `
   <header>
-    <h1>SpaceFinder Premium</h1>
-    <p class="subtitle">Find and safely remove large unused files to free up space</p>
+    <h1>SpaceFinder Premium V3</h1>
+    <p class="subtitle">Find and safely remove large unused files, duplicates, and system junk</p>
   </header>
 
-  <section class="panel">
-    <div class="presets-bar">
-      <button class="preset-btn" data-preset="videos">Forgotten Videos (>500MB)</button>
-      <button class="preset-btn" data-preset="installers">Old Installers (>100MB)</button>
-      <button class="preset-btn" data-preset="huge">Huge Files (>1GB, 90 Days)</button>
-    </div>
+  <div class="tabs">
+    <div class="tab active" data-target="tab-scanner">Disk Scanner</div>
+    <div class="tab" data-target="tab-duplicates">Duplicate Finder</div>
+    <div class="tab" data-target="tab-junk">System Junk</div>
+  </div>
 
-    <div class="controls-grid">
-      <div class="input-group">
-        <label for="folder-path">Folder to scan</label>
-        <div style="display: flex; gap: 0.5rem;">
-          <input type="text" id="folder-path" value="C:\\" readonly style="flex: 1;" />
-          <button id="btn-select-folder" class="secondary" title="Select Folder">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-          </button>
+  <!-- TAB 1: Disk Scanner -->
+  <div id="tab-scanner" class="tab-content active">
+    <section class="panel">
+      <div class="presets-bar">
+        <button class="preset-btn" data-preset="videos">Forgotten Videos (>500MB)</button>
+        <button class="preset-btn" data-preset="installers">Old Installers (>100MB)</button>
+        <button class="preset-btn" data-preset="huge">Huge Files (>1GB, 90 Days)</button>
+      </div>
+
+      <div class="controls-grid">
+        <div class="input-group">
+          <label for="folder-path">Folder to scan</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" id="folder-path" value="C:\\" readonly style="flex: 1;" />
+            <button id="btn-select-folder" class="secondary" title="Select Folder">Select</button>
+          </div>
+        </div>
+        
+        <div class="input-group">
+          <label for="min-size">Min Size (MB)</label>
+          <input type="number" id="min-size" value="100" min="1" />
+        </div>
+        
+        <div class="input-group">
+          <label for="min-days">Unused older than (days)</label>
+          <input type="number" id="min-days" value="30" min="0" />
+        </div>
+        
+        <div class="input-group" style="align-items: center; justify-content: flex-end; flex-direction: row; gap: 1rem;">
+          <span class="scan-progress" id="scan-progress"></span>
+          <div class="loader" id="loader"></div>
+          <button id="btn-start">Start Scan</button>
         </div>
       </div>
-      
-      <div class="input-group">
-        <label for="min-size">Min Size (MB)</label>
-        <input type="number" id="min-size" value="100" min="1" />
-      </div>
-      
-      <div class="input-group">
-        <label for="min-days">Unused older than (days)</label>
-        <input type="number" id="min-days" value="30" min="0" />
-      </div>
-      
-      <div class="input-group" style="align-items: center; justify-content: flex-end; flex-direction: row; gap: 1rem;">
-        <span class="scan-progress" id="scan-progress"></span>
-        <div class="loader" id="loader"></div>
-        <button id="btn-start">Start Scan</button>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <section class="panel" id="results-panel" style="display: none;">
-    <div class="results-header">
-      <h2>Found Files</h2>
-      <div class="stats" id="scan-stats">0 files found</div>
-    </div>
-    
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th class="checkbox-cell"><input type="checkbox" id="select-all" /></th>
-            <th>File</th>
-            <th>Size</th>
-            <th>Last Used</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="results-body">
-          <!-- Results will go here -->
-        </tbody>
-      </table>
-    </div>
-    
-    <div class="bottom-actions">
-      <button id="btn-delete-selected" class="danger" disabled>Delete Selected</button>
-    </div>
-  </section>
+    <section class="panel" id="results-panel" style="display: none;">
+      
+      <div class="chart-container" id="chart-container" style="display:none;">
+        <div class="chart-box">
+          <canvas id="categoryChart"></canvas>
+        </div>
+      </div>
+
+      <div class="results-header">
+        <h2>Found Files</h2>
+        <div class="stats" id="scan-stats">0 files found</div>
+      </div>
+      
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th class="checkbox-cell"><input type="checkbox" id="select-all" /></th>
+              <th>File</th>
+              <th>Size</th>
+              <th>Type</th>
+              <th>Last Used</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+      
+      <div class="bottom-actions">
+        <button id="btn-delete-selected" class="danger" disabled>Delete Selected</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- TAB 2: Duplicate Finder -->
+  <div id="tab-duplicates" class="tab-content">
+    <section class="panel">
+      <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 1rem;">
+        <p>Select a folder to scan for identical duplicate files.</p>
+        <button id="btn-scan-dupes">Scan for Duplicates</button>
+      </div>
+      <div class="loader" id="dupe-loader"></div>
+      <span class="scan-progress" id="dupe-progress"></span>
+      <div id="dupe-results"></div>
+      <div class="bottom-actions" style="margin-top:1rem;">
+        <button id="btn-delete-dupes" class="danger" style="display:none;">Delete Selected Duplicates</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- TAB 3: Junk Cleaner -->
+  <div id="tab-junk" class="tab-content">
+    <section class="panel">
+      <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 1rem;">
+        <p>Scan system paths (Windows Temp, AppData caches) for safely removable junk.</p>
+        <button id="btn-scan-junk">Scan System Junk</button>
+      </div>
+      <div class="loader" id="junk-loader"></div>
+      <div class="table-container" id="junk-table-container" style="display:none;">
+        <table>
+          <thead>
+            <tr>
+              <th class="checkbox-cell"><input type="checkbox" id="junk-select-all" /></th>
+              <th>Junk Type</th>
+              <th>Path</th>
+              <th>Size</th>
+            </tr>
+          </thead>
+          <tbody id="junk-results-body"></tbody>
+        </table>
+      </div>
+      <div class="bottom-actions">
+        <button id="btn-delete-junk" class="danger" style="display:none;">Delete Selected Junk</button>
+      </div>
+    </section>
+  </div>
 `;
 
-// State
+// Helper: Format Bytes
+function formatBytes(bytes, decimals = 2) {
+  if (!+bytes) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
+// ----------------------------------------------------
+// TAB NAVIGATION
+// ----------------------------------------------------
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.target).classList.add('active');
+  });
+});
+
+// ----------------------------------------------------
+// TAB 1: Disk Scanner (with Categories & Chart)
+// ----------------------------------------------------
 let isScanning = false;
 let foundFiles = [];
 let totalSize = 0;
 let selectedPaths = new Set();
+let categoryChartInstance = null;
 
-// Elements
 const folderPathInput = document.getElementById('folder-path');
 const btnSelectFolder = document.getElementById('btn-select-folder');
 const minSizeInput = document.getElementById('min-size');
@@ -90,148 +171,97 @@ const resultsBody = document.getElementById('results-body');
 const scanStats = document.getElementById('scan-stats');
 const selectAllCheckbox = document.getElementById('select-all');
 const btnDeleteSelected = document.getElementById('btn-delete-selected');
+const chartContainer = document.getElementById('chart-container');
 
-// Load preferences
-window.addEventListener('DOMContentLoaded', () => {
-  const savedFolder = localStorage.getItem('sf-folder');
-  const savedSize = localStorage.getItem('sf-size');
-  const savedDays = localStorage.getItem('sf-days');
-  if (savedFolder) folderPathInput.value = savedFolder;
-  if (savedSize) minSizeInput.value = savedSize;
-  if (savedDays) minDaysInput.value = savedDays;
-});
+const getCategory = (filename) => {
+  const ext = filename.split('.').pop().toLowerCase();
+  const video = ['mp4','mkv','avi','mov'];
+  const image = ['jpg','jpeg','png','gif'];
+  const doc = ['pdf','doc','docx','txt'];
+  const arch = ['zip','rar','7z','tar'];
+  const exe = ['exe','msi','apk'];
+  
+  if (video.includes(ext)) return 'Videos';
+  if (image.includes(ext)) return 'Images';
+  if (doc.includes(ext)) return 'Documents';
+  if (arch.includes(ext)) return 'Archives';
+  if (exe.includes(ext)) return 'Installers/Apps';
+  return 'Other';
+};
 
-// Save preferences on change
-function savePrefs() {
-  localStorage.setItem('sf-folder', folderPathInput.value);
-  localStorage.setItem('sf-size', minSizeInput.value);
-  localStorage.setItem('sf-days', minDaysInput.value);
-}
-[folderPathInput, minSizeInput, minDaysInput].forEach(el => el.addEventListener('change', savePrefs));
-
-// Format size helper
-function formatBytes(bytes, decimals = 2) {
-  if (!+bytes) return '0 Bytes';
-  const k = 1024;
-  const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
-
-// Safety check helper
 function getSafetyInfo(filePath) {
   const lowerPath = filePath.toLowerCase();
   const isSystem = lowerPath.includes('\\windows\\') || 
                    lowerPath.includes('\\program files') || 
                    lowerPath.includes('\\appdata\\');
   
-  if (isSystem) {
-    return { class: 'warning', text: 'SYSTEM (UNSAFE)' };
-  }
+  if (isSystem) return { class: 'warning', text: 'SYSTEM (UNSAFE)' };
   return { class: 'safe', text: 'SAFE' };
 }
 
-// Presets
+window.addEventListener('DOMContentLoaded', () => {
+  const savedFolder = localStorage.getItem('sf-folder');
+  if (savedFolder) folderPathInput.value = savedFolder;
+});
+
+function savePrefs() {
+  localStorage.setItem('sf-folder', folderPathInput.value);
+}
+folderPathInput.addEventListener('change', savePrefs);
+
 document.querySelectorAll('.preset-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const preset = btn.dataset.preset;
-    if (preset === 'videos') {
-      minSizeInput.value = '500';
-      minDaysInput.value = '60';
-    } else if (preset === 'installers') {
-      minSizeInput.value = '100';
-      minDaysInput.value = '30';
-    } else if (preset === 'huge') {
-      minSizeInput.value = '1024';
-      minDaysInput.value = '90';
-    }
-    savePrefs();
+    if (preset === 'videos') { minSizeInput.value = '500'; minDaysInput.value = '60'; }
+    else if (preset === 'installers') { minSizeInput.value = '100'; minDaysInput.value = '30'; }
+    else if (preset === 'huge') { minSizeInput.value = '1024'; minDaysInput.value = '90'; }
   });
 });
 
-// Select folder handler
 btnSelectFolder.addEventListener('click', async () => {
   if (window.api) {
     const selected = await window.api.selectFolder();
-    if (selected) {
-      folderPathInput.value = selected;
-      savePrefs();
-    }
-  } else {
-    alert("API not found, run in Electron!");
+    if (selected) { folderPathInput.value = selected; savePrefs(); }
   }
 });
 
-// Start/Stop scan handler
 btnStart.addEventListener('click', async () => {
-  if (!window.api) {
-    alert("Running outside Electron. API is not available.");
-    return;
-  }
+  if (!window.api) return;
+  if (isScanning) { await window.api.stopScan(); finishScan(); return; }
 
-  if (isScanning) {
-    await window.api.stopScan();
-    finishScan();
-    return;
-  }
-
-  isScanning = true;
-  foundFiles = [];
-  totalSize = 0;
-  selectedPaths.clear();
-  updateDeleteBtn();
+  isScanning = true; foundFiles = []; totalSize = 0; selectedPaths.clear(); updateDeleteBtn();
+  btnStart.textContent = 'Stop Scan'; btnStart.classList.add('danger');
+  loader.style.display = 'block'; scanProgress.textContent = '';
+  resultsPanel.style.display = 'block'; chartContainer.style.display = 'none';
+  resultsBody.innerHTML = ''; selectAllCheckbox.checked = false; updateStats();
   
-  btnStart.textContent = 'Stop Scan';
-  btnStart.classList.add('danger');
-  loader.style.display = 'block';
-  scanProgress.textContent = '';
-  
-  resultsPanel.style.display = 'block';
-  resultsBody.innerHTML = '';
-  selectAllCheckbox.checked = false;
-  updateStats();
-  
-  const options = {
+  await window.api.startScan({
     folderPath: folderPathInput.value,
     minSizeMB: parseFloat(minSizeInput.value),
     minDaysUnused: parseFloat(minDaysInput.value)
-  };
-  
-  await window.api.startScan(options);
+  });
 });
 
-// Delete files wrapper
-async function deleteFiles(paths) {
+async function deleteFiles(paths, callback) {
   if (paths.length === 0) return;
-  const msg = `Move ${paths.length} file(s) to the Recycle Bin?`;
-  if (!confirm(msg)) return;
-  
+  if (!confirm(`Move ${paths.length} file(s) to the Recycle Bin?`)) return;
   const results = await window.api.trashFiles(paths);
-  
-  // Remove successful deletes from UI
-  results.forEach(res => {
-    if (res.success) {
-      const idx = foundFiles.findIndex(f => f.path === res.path);
-      if (idx !== -1) {
-        totalSize -= foundFiles[idx].size;
-        foundFiles.splice(idx, 1);
-      }
-      selectedPaths.delete(res.path);
-      // Remove row
-      const row = document.getElementById('row-' + btoa(unescape(encodeURIComponent(res.path))).replace(/=/g, ''));
-      if (row) row.remove();
-    } else {
-      console.error("Failed to trash:", res.path, res.error);
-    }
-  });
-  
-  updateStats();
-  updateDeleteBtn();
+  if (callback) callback(results);
 }
 
 btnDeleteSelected.addEventListener('click', () => {
-  deleteFiles(Array.from(selectedPaths));
+  deleteFiles(Array.from(selectedPaths), (results) => {
+    results.forEach(res => {
+      if (res.success) {
+        const idx = foundFiles.findIndex(f => f.path === res.path);
+        if (idx !== -1) { totalSize -= foundFiles[idx].size; foundFiles.splice(idx, 1); }
+        selectedPaths.delete(res.path);
+        const row = document.getElementById('row-' + btoa(unescape(encodeURIComponent(res.path))).replace(/=/g, ''));
+        if (row) row.remove();
+      }
+    });
+    updateStats(); updateDeleteBtn(); updateChart();
+  });
 });
 
 selectAllCheckbox.addEventListener('change', (e) => {
@@ -239,8 +269,7 @@ selectAllCheckbox.addEventListener('change', (e) => {
   document.querySelectorAll('.row-checkbox').forEach(cb => {
     cb.checked = isChecked;
     const path = cb.dataset.path;
-    if (isChecked) selectedPaths.add(path);
-    else selectedPaths.delete(path);
+    if (isChecked) selectedPaths.add(path); else selectedPaths.delete(path);
   });
   updateDeleteBtn();
 });
@@ -250,80 +279,35 @@ function updateDeleteBtn() {
   btnDeleteSelected.textContent = `Delete Selected (${selectedPaths.size})`;
 }
 
-if (window.api) {
-  window.api.onScanProgress(({ scanned }) => {
-    scanProgress.textContent = `Scanned ${scanned.toLocaleString()} files...`;
+function updateChart() {
+  if (foundFiles.length === 0) return;
+  chartContainer.style.display = 'flex';
+  
+  const categorySizes = {};
+  foundFiles.forEach(f => {
+    categorySizes[f.category] = (categorySizes[f.category] || 0) + f.size;
   });
-
-  window.api.onScanResult((file) => {
-    foundFiles.push(file);
-    totalSize += file.size;
-    
-    const rowId = 'row-' + btoa(unescape(encodeURIComponent(file.path))).replace(/=/g, '');
-    const tr = document.createElement('tr');
-    tr.id = rowId;
-    
-    // Checkbox
-    const tdCheck = document.createElement('td');
-    tdCheck.className = 'checkbox-cell';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.className = 'row-checkbox';
-    cb.dataset.path = file.path;
-    cb.addEventListener('change', (e) => {
-      if (e.target.checked) selectedPaths.add(file.path);
-      else selectedPaths.delete(file.path);
-      updateDeleteBtn();
-    });
-    tdCheck.appendChild(cb);
-    
-    // File Info
-    const tdFile = document.createElement('td');
-    const safeInfo = getSafetyInfo(file.path);
-    tdFile.innerHTML = `
-      <div class="file-name" title="Click to open file" onclick="window.api.openFile('${file.path.replace(/\\/g, '\\\\')}')">
-        ${file.name} <span class="badge ${safeInfo.class}">${safeInfo.text}</span>
-      </div>
-      <div class="file-path">${file.path}</div>
-    `;
-    
-    // Size
-    const tdSize = document.createElement('td');
-    tdSize.textContent = formatBytes(file.size);
-    
-    // Date
-    const tdDate = document.createElement('td');
-    const date = new Date(file.lastUsedMs);
-    tdDate.textContent = `${date.toLocaleDateString()} (${Math.floor(file.daysUnused)} days ago)`;
-    
-    // Action
-    const tdAction = document.createElement('td');
-    
-    const btnOpen = document.createElement('button');
-    btnOpen.className = 'secondary action-btn';
-    btnOpen.textContent = 'Folder';
-    btnOpen.onclick = () => window.api.openFolder(file.path);
-    
-    const btnDel = document.createElement('button');
-    btnDel.className = 'danger action-btn';
-    btnDel.textContent = 'Delete';
-    btnDel.onclick = () => deleteFiles([file.path]);
-    
-    tdAction.appendChild(btnOpen);
-    tdAction.appendChild(btnDel);
-    
-    tr.appendChild(tdCheck);
-    tr.appendChild(tdFile);
-    tr.appendChild(tdSize);
-    tr.appendChild(tdDate);
-    tr.appendChild(tdAction);
-    
-    resultsBody.appendChild(tr);
-    updateStats();
-  });
-
-  window.api.onScanComplete(() => {
-    finishScan();
+  
+  const labels = Object.keys(categorySizes);
+  const data = Object.values(categorySizes);
+  
+  const ctx = document.getElementById('categoryChart').getContext('2d');
+  if (categoryChartInstance) categoryChartInstance.destroy();
+  
+  categoryChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { color: '#e2e8f0' } } }
+    }
   });
 }
 
@@ -333,8 +317,191 @@ function updateStats() {
 
 function finishScan() {
   isScanning = false;
-  btnStart.textContent = 'Start Scan';
-  btnStart.classList.remove('danger');
-  loader.style.display = 'none';
-  scanProgress.textContent = '';
+  btnStart.textContent = 'Start Scan'; btnStart.classList.remove('danger');
+  loader.style.display = 'none'; scanProgress.textContent = '';
+  updateChart();
 }
+
+if (window.api) {
+  window.api.onScanProgress(({ scanned }) => {
+    scanProgress.textContent = `Scanned ${scanned.toLocaleString()} files...`;
+    document.getElementById('dupe-progress').textContent = `Scanned ${scanned.toLocaleString()} files...`;
+  });
+
+  window.api.onScanResult((file) => {
+    file.category = getCategory(file.name);
+    foundFiles.push(file);
+    totalSize += file.size;
+    
+    const rowId = 'row-' + btoa(unescape(encodeURIComponent(file.path))).replace(/=/g, '');
+    const tr = document.createElement('tr');
+    tr.id = rowId;
+    
+    const safeInfo = getSafetyInfo(file.path);
+    tr.innerHTML = `
+      <td class="checkbox-cell"><input type="checkbox" class="row-checkbox" data-path="${file.path.replace(/"/g, '&quot;')}" /></td>
+      <td>
+        <div class="file-name" title="Click to open file" onclick="window.api.openFile('${file.path.replace(/\\/g, '\\\\')}')">
+          ${file.name} <span class="badge ${safeInfo.class}">${safeInfo.text}</span>
+        </div>
+        <div class="file-path">${file.path}</div>
+      </td>
+      <td>${formatBytes(file.size)}</td>
+      <td>${file.category}</td>
+      <td>${Math.floor(file.daysUnused)} days ago</td>
+      <td>
+        <button class="secondary action-btn" onclick="window.api.openFolder('${file.path.replace(/\\/g, '\\\\')}')">Folder</button>
+      </td>
+    `;
+    
+    tr.querySelector('.row-checkbox').addEventListener('change', (e) => {
+      if (e.target.checked) selectedPaths.add(file.path); else selectedPaths.delete(file.path);
+      updateDeleteBtn();
+    });
+    
+    resultsBody.appendChild(tr);
+    updateStats();
+  });
+
+  window.api.onScanComplete(() => {
+    finishScan();
+    document.getElementById('dupe-loader').style.display = 'none';
+    document.getElementById('junk-loader').style.display = 'none';
+    document.getElementById('dupe-progress').textContent = '';
+  });
+}
+
+// ----------------------------------------------------
+// TAB 2: Duplicate Finder
+// ----------------------------------------------------
+let duplicatePaths = new Set();
+const btnScanDupes = document.getElementById('btn-scan-dupes');
+const dupeResults = document.getElementById('dupe-results');
+const btnDeleteDupes = document.getElementById('btn-delete-dupes');
+
+btnScanDupes.addEventListener('click', async () => {
+  if (!window.api) return;
+  document.getElementById('dupe-loader').style.display = 'block';
+  dupeResults.innerHTML = '';
+  duplicatePaths.clear();
+  btnDeleteDupes.style.display = 'none';
+  await window.api.startDuplicateScan(folderPathInput.value);
+});
+
+if (window.api) {
+  window.api.onDuplicateResult(({ hash, files }) => {
+    const div = document.createElement('div');
+    div.className = 'duplicate-group';
+    div.innerHTML = `<h4>Duplicate Group (${formatBytes(files[0].size)})</h4>`;
+    
+    // Auto-select all but the first one
+    files.forEach((file, index) => {
+      const isChecked = index > 0;
+      if (isChecked) duplicatePaths.add(file.path);
+      
+      const row = document.createElement('div');
+      row.style.marginBottom = '0.5rem';
+      row.innerHTML = `
+        <label style="display:flex; gap:0.5rem; align-items:center;">
+          <input type="checkbox" class="dupe-cb" data-path="${file.path.replace(/"/g, '&quot;')}" ${isChecked ? 'checked' : ''} />
+          <span style="font-family:monospace; font-size:0.8rem; word-break:break-all;">${file.path}</span>
+        </label>
+      `;
+      row.querySelector('.dupe-cb').addEventListener('change', (e) => {
+        if (e.target.checked) duplicatePaths.add(file.path);
+        else duplicatePaths.delete(file.path);
+        updateDupeDeleteBtn();
+      });
+      div.appendChild(row);
+    });
+    
+    dupeResults.appendChild(div);
+    updateDupeDeleteBtn();
+  });
+}
+
+function updateDupeDeleteBtn() {
+  btnDeleteDupes.style.display = duplicatePaths.size > 0 ? 'inline-block' : 'none';
+  btnDeleteDupes.textContent = `Delete Selected Duplicates (${duplicatePaths.size})`;
+}
+
+btnDeleteDupes.addEventListener('click', () => {
+  deleteFiles(Array.from(duplicatePaths), (results) => {
+    results.forEach(res => {
+      if (res.success) {
+        duplicatePaths.delete(res.path);
+        const checkbox = document.querySelector(`.dupe-cb[data-path="${res.path.replace(/\\/g, '\\\\')}"]`);
+        if (checkbox) checkbox.parentElement.parentElement.remove();
+      }
+    });
+    updateDupeDeleteBtn();
+  });
+});
+
+
+// ----------------------------------------------------
+// TAB 3: Junk Cleaner
+// ----------------------------------------------------
+let junkPaths = new Set();
+const btnScanJunk = document.getElementById('btn-scan-junk');
+const junkTableContainer = document.getElementById('junk-table-container');
+const junkResultsBody = document.getElementById('junk-results-body');
+const btnDeleteJunk = document.getElementById('btn-delete-junk');
+const junkSelectAll = document.getElementById('junk-select-all');
+
+btnScanJunk.addEventListener('click', async () => {
+  if (!window.api) return;
+  document.getElementById('junk-loader').style.display = 'block';
+  junkResultsBody.innerHTML = '';
+  junkPaths.clear();
+  junkTableContainer.style.display = 'block';
+  junkSelectAll.checked = false;
+  btnDeleteJunk.style.display = 'none';
+  await window.api.startJunkScan();
+});
+
+if (window.api) {
+  window.api.onJunkResult(({ type, path, size }) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="checkbox-cell"><input type="checkbox" class="junk-cb" data-path="${path.replace(/"/g, '&quot;')}" /></td>
+      <td><strong>${type}</strong></td>
+      <td><div class="file-path">${path}</div></td>
+      <td>${formatBytes(size)}</td>
+    `;
+    tr.querySelector('.junk-cb').addEventListener('change', (e) => {
+      if (e.target.checked) junkPaths.add(path); else junkPaths.delete(path);
+      updateJunkDeleteBtn();
+    });
+    junkResultsBody.appendChild(tr);
+  });
+}
+
+junkSelectAll.addEventListener('change', (e) => {
+  const isChecked = e.target.checked;
+  document.querySelectorAll('.junk-cb').forEach(cb => {
+    cb.checked = isChecked;
+    const p = cb.dataset.path;
+    if (isChecked) junkPaths.add(p); else junkPaths.delete(p);
+  });
+  updateJunkDeleteBtn();
+});
+
+function updateJunkDeleteBtn() {
+  btnDeleteJunk.style.display = junkPaths.size > 0 ? 'inline-block' : 'none';
+  btnDeleteJunk.textContent = `Delete Selected Junk (${junkPaths.size})`;
+}
+
+btnDeleteJunk.addEventListener('click', () => {
+  // Caution: We're sending a folder to be trashed. shell.trashItem handles folders too.
+  deleteFiles(Array.from(junkPaths), (results) => {
+    results.forEach(res => {
+      if (res.success) {
+        junkPaths.delete(res.path);
+        const cb = document.querySelector(`.junk-cb[data-path="${res.path.replace(/\\/g, '\\\\')}"]`);
+        if (cb) cb.parentElement.parentElement.remove();
+      }
+    });
+    updateJunkDeleteBtn();
+  });
+});
