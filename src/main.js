@@ -1,5 +1,8 @@
 import './style.css';
 import Chart from 'chart.js/auto';
+import { TreemapController, TreemapElement } from 'chartjs-chart-treemap';
+
+Chart.register(TreemapController, TreemapElement);
 
 document.querySelector('#app').innerHTML = `
   <header>
@@ -51,9 +54,14 @@ document.querySelector('#app').innerHTML = `
 
     <section class="panel" id="results-panel" style="display: none;">
       
-      <div class="chart-container" id="chart-container" style="display:none;">
-        <div class="chart-box">
+      <div class="chart-container" id="chart-container" style="display:none; flex-direction: row; flex-wrap: wrap;">
+        <div class="chart-box" style="flex: 1; min-width: 300px;">
+          <h3 style="text-align:center; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-muted);">By Category</h3>
           <canvas id="categoryChart"></canvas>
+        </div>
+        <div class="chart-box" style="flex: 2; min-width: 400px; position: relative;">
+          <h3 style="text-align:center; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-muted);">By Directory</h3>
+          <canvas id="treemapChart"></canvas>
         </div>
       </div>
 
@@ -158,6 +166,7 @@ let foundFiles = [];
 let totalSize = 0;
 let selectedPaths = new Set();
 let categoryChartInstance = null;
+let treemapChartInstance = null;
 
 const folderPathInput = document.getElementById('folder-path');
 const btnSelectFolder = document.getElementById('btn-select-folder');
@@ -280,33 +289,100 @@ function updateDeleteBtn() {
 }
 
 function updateChart() {
-  if (foundFiles.length === 0) return;
+  if (foundFiles.length === 0) {
+    chartContainer.style.display = 'none';
+    return;
+  }
   chartContainer.style.display = 'flex';
   
+  // 1. Doughnut Chart (Categories)
   const categorySizes = {};
   foundFiles.forEach(f => {
     categorySizes[f.category] = (categorySizes[f.category] || 0) + f.size;
   });
   
-  const labels = Object.keys(categorySizes);
-  const data = Object.values(categorySizes);
+  const pieLabels = Object.keys(categorySizes);
+  const pieData = Object.values(categorySizes);
   
-  const ctx = document.getElementById('categoryChart').getContext('2d');
+  const ctxPie = document.getElementById('categoryChart').getContext('2d');
   if (categoryChartInstance) categoryChartInstance.destroy();
   
-  categoryChartInstance = new Chart(ctx, {
+  categoryChartInstance = new Chart(ctxPie, {
     type: 'doughnut',
     data: {
-      labels: labels,
+      labels: pieLabels,
       datasets: [{
-        data: data,
-        backgroundColor: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'],
+        data: pieData,
+        backgroundColor: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b', '#ec4899', '#06b6d4'],
         borderWidth: 0
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'right', labels: { color: '#e2e8f0' } } }
+      plugins: { legend: { position: 'bottom', labels: { color: '#e2e8f0', font: {size: 11} } } }
+    }
+  });
+
+  // 2. Treemap Chart (Directories)
+  // Aggregate file sizes by their parent directory
+  const dirSizes = {};
+  foundFiles.forEach(f => {
+    // Basic extraction of parent dir
+    const lastSlash = Math.max(f.path.lastIndexOf('\\'), f.path.lastIndexOf('/'));
+    const dir = lastSlash > -1 ? f.path.substring(0, lastSlash) : f.path;
+    dirSizes[dir] = (dirSizes[dir] || 0) + f.size;
+  });
+
+  // Convert to array of objects for treemap
+  const treemapData = Object.keys(dirSizes).map(dir => ({
+    name: dir,
+    value: dirSizes[dir]
+  }));
+
+  const ctxTree = document.getElementById('treemapChart').getContext('2d');
+  if (treemapChartInstance) treemapChartInstance.destroy();
+
+  treemapChartInstance = new Chart(ctxTree, {
+    type: 'treemap',
+    data: {
+      datasets: [{
+        tree: treemapData,
+        key: 'value',
+        groups: ['name'],
+        backgroundColor: (ctx) => {
+          if (ctx.type !== 'data') return 'transparent';
+          // Generate a color based on the value to make it look nice
+          const value = ctx.raw.v;
+          const alpha = Math.max(0.3, Math.min(1, value / totalSize));
+          return `rgba(59, 130, 246, ${alpha})`; // Blue-ish scale
+        },
+        borderColor: '#0f172a',
+        borderWidth: 1,
+        labels: {
+          display: true,
+          formatter: (ctx) => {
+            const name = ctx.raw.g;
+            // Shorten name if too long
+            const shortName = name.length > 30 ? '...' + name.substring(name.length - 27) : name;
+            return [shortName, formatBytes(ctx.raw.v)];
+          },
+          color: '#ffffff',
+          font: { size: 10 }
+        }
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              return `${ctx.raw.g}: ${formatBytes(ctx.raw.v)}`;
+            }
+          }
+        }
+      }
     }
   });
 }
