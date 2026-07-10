@@ -14,6 +14,9 @@ document.querySelector('#app').innerHTML = `
     <div class="tab active" data-target="tab-scanner">Large File Scanner</div>
     <div class="tab" data-target="tab-duplicates">Duplicate Finder</div>
     <div class="tab" data-target="tab-junk">System Junk Cleaner</div>
+    <div class="tab" data-target="tab-ai">AI Assistant</div>
+    <div style="flex:1;"></div>
+    <button id="btn-settings" class="secondary" style="padding: 0.5rem 1rem;">⚙ Settings</button>
   </div>
 
   <!-- TAB 1: Disk Scanner -->
@@ -145,6 +148,35 @@ document.querySelector('#app').innerHTML = `
       </div>
     </section>
   </div>
+
+  <!-- TAB 4: AI Assistant -->
+  <div id="tab-ai" class="tab-content">
+    <section class="panel" style="display: flex; flex-direction: column; height: 500px;">
+      <div id="chat-messages" style="flex: 1; overflow-y: auto; padding-right: 1rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+        <div class="chat-message assistant">
+          Hello! I am your SpaceFinder AI Assistant (Llama 3.1 405B). How can I help you with your files today?
+        </div>
+      </div>
+      <div style="display: flex; gap: 0.5rem;">
+        <input type="text" id="ai-prompt-input" placeholder="Ask a question..." style="flex: 1;" />
+        <button id="btn-send-ai">Send</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-content panel">
+      <h2 style="margin-bottom: 1rem;">Settings</h2>
+      <div class="input-group">
+        <label for="nvidia-api-key">Nvidia NIM API Key</label>
+        <input type="password" id="nvidia-api-key" placeholder="nvapi-..." />
+      </div>
+      <div class="bottom-actions" style="margin-top: 1rem;">
+        <button id="btn-close-settings" class="secondary">Close</button>
+      </div>
+    </div>
+  </div>
 `;
 
 // Helper: Format Bytes
@@ -222,12 +254,27 @@ function checkSystemFileSafety(filePath) {
 window.addEventListener('DOMContentLoaded', () => {
   const savedFolder = localStorage.getItem('sf-folder');
   if (savedFolder) folderPathInput.value = savedFolder;
+  
+  const savedApiKey = localStorage.getItem('sf-nvidia-key');
+  if (savedApiKey) document.getElementById('nvidia-api-key').value = savedApiKey;
 });
 
 function saveUserSettingsToLocal() {
   localStorage.setItem('sf-folder', folderPathInput.value);
 }
 folderPathInput.addEventListener('change', saveUserSettingsToLocal);
+
+document.getElementById('nvidia-api-key').addEventListener('change', (e) => {
+  localStorage.setItem('sf-nvidia-key', e.target.value);
+});
+
+const settingsModal = document.getElementById('settings-modal');
+document.getElementById('btn-settings').addEventListener('click', () => {
+  settingsModal.style.display = 'flex';
+});
+document.getElementById('btn-close-settings').addEventListener('click', () => {
+  settingsModal.style.display = 'none';
+});
 
 document.querySelectorAll('.preset-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -591,4 +638,68 @@ btnDeleteJunk.addEventListener('click', () => {
     });
     refreshJunkDeleteButton();
   });
+});
+
+// ----------------------------------------------------
+// TAB 4: AI Assistant
+// ----------------------------------------------------
+const chatMessages = document.getElementById('chat-messages');
+const aiPromptInput = document.getElementById('ai-prompt-input');
+const btnSendAi = document.getElementById('btn-send-ai');
+
+let conversationHistory = [
+  { role: 'system', content: 'You are a helpful IT assistant built into a disk cleaning app called SpaceFinder Premium. The user will ask you questions about files, cleaning up space, and computer maintenance.' }
+];
+
+function appendChatMessage(role, text) {
+  const div = document.createElement('div');
+  div.className = `chat-message ${role}`;
+  div.textContent = text;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+async function sendAiMessage() {
+  const text = aiPromptInput.value.trim();
+  if (!text) return;
+  
+  const apiKey = localStorage.getItem('sf-nvidia-key');
+  if (!apiKey) {
+    alert("Please set your Nvidia NIM API key in Settings first.");
+    return;
+  }
+
+  aiPromptInput.value = '';
+  appendChatMessage('user', text);
+  btnSendAi.disabled = true;
+  
+  conversationHistory.push({ role: 'user', content: text });
+  
+  const loadingDiv = document.createElement('div');
+  loadingDiv.className = 'chat-message assistant';
+  loadingDiv.textContent = 'Thinking...';
+  chatMessages.appendChild(loadingDiv);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  if (window.api) {
+    const response = await window.api.askAI({ apiKey, messages: conversationHistory });
+    loadingDiv.remove();
+    
+    if (response.error) {
+      appendChatMessage('assistant', `Error: ${response.error}`);
+      conversationHistory.pop(); // remove user message on error to allow retry
+    } else {
+      const reply = response.choices[0].message.content;
+      appendChatMessage('assistant', reply);
+      conversationHistory.push({ role: 'assistant', content: reply });
+    }
+  }
+  
+  btnSendAi.disabled = false;
+  aiPromptInput.focus();
+}
+
+btnSendAi.addEventListener('click', sendAiMessage);
+aiPromptInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendAiMessage();
 });

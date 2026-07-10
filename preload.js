@@ -13,5 +13,6 @@ contextBridge.exposeInMainWorld('api', {
   onDuplicateResult: (callback) => ipcRenderer.on('scan:duplicateResult', (_event, value) => callback(value)),
   onJunkResult: (callback) => ipcRenderer.on('scan:junkResult', (_event, value) => callback(value)),
   onScanComplete: (callback) => ipcRenderer.on('scan:complete', () => callback()),
-  onScanProgress: (callback) => ipcRenderer.on('scan:progress', (_event, value) => callback(value))
+  onScanProgress: (callback) => ipcRenderer.on('scan:progress', (_event, value) => callback(value)),
+  askAI: (data) => ipcRenderer.invoke('ai:ask', data)
 });

@@ -278,3 +278,33 @@ ipcMain.handle('scan:junk', async () => {
   }
 });
 
+// AI Assistant
+ipcMain.handle('ai:ask', async (event, { apiKey, messages }) => {
+  try {
+    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'meta/llama-3.1-405b-instruct',
+        messages: messages,
+        temperature: 0.2,
+        top_p: 0.7,
+        max_tokens: 1024
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API Error: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
