@@ -485,6 +485,7 @@ if (window.api) {
       <td>${Math.floor(file.daysUnused)} days ago</td>
       <td>
         <button class="secondary action-btn" onclick="window.api.openFolder('${file.path.replace(/\\/g, '\\\\')}')">Open Folder</button>
+        <button class="primary action-btn" style="background: #a78bfa; color: #fff; border:none;" onclick="askAiAboutFile('${file.path.replace(/\\/g, '\\\\')}', '${file.size}')">Ask AI</button>
       </td>
     `;
     
@@ -703,3 +704,20 @@ btnSendAi.addEventListener('click', sendAiMessage);
 aiPromptInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendAiMessage();
 });
+
+window.askAiAboutFile = function(filePath, sizeBytes) {
+  // Switch to AI tab
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const aiTab = document.querySelector('[data-target="tab-ai"]');
+  aiTab.classList.add('active');
+  document.getElementById('tab-ai').classList.add('active');
+  
+  // Format prompt
+  const sizeFormatted = formatBytes(sizeBytes);
+  const prompt = `I found a file on my computer and I want to free up space. Is it safe to delete this file? Please explain what it is and any risks of deleting it.\n\nFile Path: ${filePath}\nSize: ${sizeFormatted}`;
+  
+  // Insert and send
+  aiPromptInput.value = prompt;
+  sendAiMessage();
+};
