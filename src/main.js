@@ -76,20 +76,13 @@ document.querySelector('#app').innerHTML = `
         <div class="stats" id="scan-stats">0 files found</div>
       </div>
       
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th class="checkbox-cell"><input type="checkbox" id="select-all" /></th>
-              <th>File</th>
-              <th>Size</th>
-              <th>Type</th>
-              <th>Last Used</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="results-body"></tbody>
-        </table>
+      <div style="margin-bottom: 0.5rem; padding-left: 0.5rem; display: flex; align-items: center; gap: 1rem;">
+        <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--text-secondary); cursor:pointer;">
+          <input type="checkbox" id="select-all" /> Select All
+        </label>
+      </div>
+
+      <div class="file-cards-container" id="results-body">
       </div>
       
       <div class="bottom-actions">
@@ -123,25 +116,20 @@ document.querySelector('#app').innerHTML = `
     <section class="panel">
       <!-- Action Bar -->
       <div class="action-bar" style="display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 1rem;">
-        <p>Scan system paths (Windows Temp, AppData caches) for safely removable junk.</p>
+        <p style="color:var(--text-secondary); font-size:0.9rem;">Scan system paths (Windows Temp, AppData caches) for safely removable junk.</p>
         <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
           <div class="loader" id="junk-loader"></div>
           <button id="btn-scan-junk">Analyze System Caches</button>
         </div>
       </div>
       
-      <div class="table-container" id="junk-table-container" style="display:none; margin-top: 1rem;">
-        <table>
-          <thead>
-            <tr>
-              <th class="checkbox-cell"><input type="checkbox" id="junk-select-all" /></th>
-              <th>Junk Type</th>
-              <th>Path</th>
-              <th>Size</th>
-            </tr>
-          </thead>
-          <tbody id="junk-results-body"></tbody>
-        </table>
+      <div style="margin-top: 1.5rem; margin-bottom: 0.5rem; display:none;" id="junk-select-all-wrap">
+        <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--text-secondary); cursor:pointer;">
+          <input type="checkbox" id="junk-select-all" /> Select All Junk
+        </label>
+      </div>
+
+      <div class="file-cards-container" id="junk-results-body" style="display:none;">
       </div>
       <div class="bottom-actions">
         <button id="btn-delete-junk" class="danger" style="display:none;">Clean Selected Junk</button>
@@ -154,7 +142,7 @@ document.querySelector('#app').innerHTML = `
     <section class="panel" style="display: flex; flex-direction: column; height: 500px;">
       <div id="chat-messages" style="flex: 1; overflow-y: auto; padding-right: 1rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 1rem;">
         <div class="chat-message assistant">
-          Hello! I am your SpaceFinder AI Assistant (Llama 3.1 405B). How can I help you with your files today?
+          Hello! I am your SpaceFinder AI Assistant powered by Google Gemini 2.0 Flash via OpenRouter. How can I help you clean up your drive?
         </div>
       </div>
       <div style="display: flex; gap: 0.5rem;">
@@ -169,8 +157,8 @@ document.querySelector('#app').innerHTML = `
     <div class="modal-content panel">
       <h2 style="margin-bottom: 1rem;">Settings</h2>
       <div class="input-group">
-        <label for="nvidia-api-key">Nvidia NIM API Key</label>
-        <input type="password" id="nvidia-api-key" placeholder="nvapi-..." />
+        <label for="nvidia-api-key">OpenRouter API Key</label>
+        <input type="password" id="nvidia-api-key" placeholder="sk-or-v1-..." />
       </div>
       <div class="bottom-actions" style="margin-top: 1rem;">
         <button id="btn-close-settings" class="secondary">Close</button>
@@ -473,20 +461,23 @@ if (window.api) {
     
     const safeInfo = checkSystemFileSafety(file.path);
     tr.innerHTML = `
-      <td class="checkbox-cell"><input type="checkbox" class="row-checkbox" data-path="${file.path.replace(/"/g, '&quot;')}" /></td>
-      <td>
-        <div class="file-name" title="Click to open file" onclick="window.api.openFile('${file.path.replace(/\\/g, '\\\\')}')">
-          ${file.name} <span class="badge ${safeInfo.class}">${safeInfo.text}</span>
+      <div class="checkbox-wrapper">
+        <input type="checkbox" class="row-checkbox" data-path="${file.path.replace(/"/g, '&quot;')}" />
+      </div>
+      <div class="file-info">
+        <div class="file-name" title="Click to open file" onclick="window.api.openFile('${file.path.replace(/\\/g, '\\\\')}')">${file.name}</div>
+        <div class="file-meta">
+          <span class="badge ${safeInfo.class}">${safeInfo.text}</span>
+          <span class="badge category">${file.category}</span>
+          <span><strong>${formatBytes(file.size)}</strong></span>
+          <span>Used ${Math.floor(file.daysUnused)} days ago</span>
         </div>
         <div class="file-path">${file.path}</div>
-      </td>
-      <td>${formatBytes(file.size)}</td>
-      <td>${file.category}</td>
-      <td>${Math.floor(file.daysUnused)} days ago</td>
-      <td>
+      </div>
+      <div class="file-actions">
         <button class="secondary action-btn" onclick="window.api.openFolder('${file.path.replace(/\\/g, '\\\\')}')">Open Folder</button>
-        <button class="primary action-btn" style="background: #a78bfa; color: #fff; border:none;" onclick="askAiAboutFile('${file.path.replace(/\\/g, '\\\\')}', '${file.size}')">Ask AI</button>
-      </td>
+        <button class="primary action-btn" onclick="askAiAboutFile('${file.path.replace(/\\/g, '\\\\')}', '${file.size}')">Ask AI</button>
+      </div>
     `;
     
     tr.querySelector('.row-checkbox').addEventListener('change', (e) => {
@@ -535,12 +526,10 @@ if (window.api) {
       if (isChecked) duplicatePaths.add(file.path);
       
       const row = document.createElement('div');
-      row.style.marginBottom = '0.5rem';
+      row.className = 'dupe-row';
       row.innerHTML = `
-        <label style="display:flex; gap:0.5rem; align-items:center;">
-          <input type="checkbox" class="dupe-cb" data-path="${file.path.replace(/"/g, '&quot;')}" ${isChecked ? 'checked' : ''} />
-          <span style="font-family:monospace; font-size:0.8rem; word-break:break-all;">${file.path}</span>
-        </label>
+        <input type="checkbox" class="dupe-cb" data-path="${file.path.replace(/"/g, '&quot;')}" ${isChecked ? 'checked' : ''} />
+        <span class="dupe-path">${file.path}</span>
       `;
       row.querySelector('.dupe-cb').addEventListener('change', (e) => {
         if (e.target.checked) duplicatePaths.add(file.path);
@@ -579,17 +568,18 @@ btnDeleteDupes.addEventListener('click', () => {
 // ----------------------------------------------------
 let junkPaths = new Set();
 const btnScanJunk = document.getElementById('btn-scan-junk');
-const junkTableContainer = document.getElementById('junk-table-container');
 const junkResultsBody = document.getElementById('junk-results-body');
 const btnDeleteJunk = document.getElementById('btn-delete-junk');
 const junkSelectAll = document.getElementById('junk-select-all');
+const junkSelectAllWrap = document.getElementById('junk-select-all-wrap');
 
 btnScanJunk.addEventListener('click', async () => {
   if (!window.api) return;
   document.getElementById('junk-loader').style.display = 'block';
   junkResultsBody.innerHTML = '';
   junkPaths.clear();
-  junkTableContainer.style.display = 'block';
+  junkResultsBody.style.display = 'grid';
+  junkSelectAllWrap.style.display = 'flex';
   junkSelectAll.checked = false;
   btnDeleteJunk.style.display = 'none';
   await window.api.startJunkScan();
@@ -597,12 +587,19 @@ btnScanJunk.addEventListener('click', async () => {
 
 if (window.api) {
   window.api.onJunkResult(({ type, path, size }) => {
-    const tr = document.createElement('tr');
+    const tr = document.createElement('div');
+    tr.className = 'file-card';
     tr.innerHTML = `
-      <td class="checkbox-cell"><input type="checkbox" class="junk-cb" data-path="${path.replace(/"/g, '&quot;')}" /></td>
-      <td><strong>${type}</strong></td>
-      <td><div class="file-path">${path}</div></td>
-      <td>${formatBytes(size)}</td>
+      <div class="checkbox-wrapper">
+        <input type="checkbox" class="junk-cb" data-path="${path.replace(/"/g, '&quot;')}" />
+      </div>
+      <div class="file-info">
+        <div class="file-name">${type}</div>
+        <div class="file-meta">
+          <span><strong>${formatBytes(size)}</strong></span>
+        </div>
+        <div class="file-path">${path}</div>
+      </div>
     `;
     tr.querySelector('.junk-cb').addEventListener('change', (e) => {
       if (e.target.checked) junkPaths.add(path); else junkPaths.delete(path);
@@ -666,7 +663,7 @@ async function sendAiMessage() {
   
   const apiKey = localStorage.getItem('sf-nvidia-key');
   if (!apiKey) {
-    alert("Please set your Nvidia NIM API key in Settings first.");
+    alert("Please set your OpenRouter API key in Settings first.");
     return;
   }
 

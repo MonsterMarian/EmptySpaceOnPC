@@ -281,18 +281,19 @@ ipcMain.handle('scan:junk', async () => {
 // AI Assistant
 ipcMain.handle('ai:ask', async (event, { apiKey, messages }) => {
   try {
-    const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://github.com/MonsterMarian/EmptySpaceOnPC',
+        'X-Title': 'SpaceFinder Premium'
       },
       body: JSON.stringify({
-        model: 'meta/llama-3.1-405b-instruct',
+        model: 'google/gemini-2.0-flash-exp:free',
         messages: messages,
         temperature: 0.2,
-        top_p: 0.7,
-        max_tokens: 1024
+        top_p: 0.7
       })
     });
     
