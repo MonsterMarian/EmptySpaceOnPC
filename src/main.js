@@ -252,8 +252,8 @@ function saveUserSettingsToLocal() {
 }
 folderPathInput.addEventListener('change', saveUserSettingsToLocal);
 
-document.getElementById('nvidia-api-key').addEventListener('change', (e) => {
-  localStorage.setItem('sf-nvidia-key', e.target.value);
+document.getElementById('nvidia-api-key').addEventListener('input', (e) => {
+  localStorage.setItem('sf-nvidia-key', e.target.value.trim());
 });
 
 const settingsModal = document.getElementById('settings-modal');
@@ -661,7 +661,7 @@ async function sendAiMessage() {
   const text = aiPromptInput.value.trim();
   if (!text) return;
   
-  const apiKey = localStorage.getItem('sf-nvidia-key');
+  const apiKey = localStorage.getItem('sf-nvidia-key')?.trim();
   if (!apiKey) {
     alert("Please set your OpenRouter API key in Settings first.");
     return;

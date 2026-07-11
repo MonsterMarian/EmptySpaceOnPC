@@ -285,7 +285,7 @@ ipcMain.handle('ai:ask', async (event, { apiKey, messages }) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${apiKey.trim()}`,
         'HTTP-Referer': 'https://github.com/MonsterMarian/EmptySpaceOnPC',
         'X-Title': 'SpaceFinder Premium'
       },
