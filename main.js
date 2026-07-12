@@ -176,7 +176,8 @@ ipcMain.handle('scan:duplicates', async (event, folderPath) => {
             await groupFilesByByteSize(fullPath);
           } else if (entry.isFile()) {
             const stats = await fs.stat(fullPath);
-            if (stats.size > 0) {
+            // Only look for duplicates larger than 10MB to save time and focus on real space-wasters
+            if (stats.size > 10 * 1024 * 1024) {
               if (!sizeMap.has(stats.size)) {
                 sizeMap.set(stats.size, []);
               }
@@ -194,9 +195,17 @@ ipcMain.handle('scan:duplicates', async (event, folderPath) => {
     // Only keep sizes with > 1 file
     const potentialDuplicates = Array.from(sizeMap.values()).filter(group => group.length > 1);
     
+    mainWindow.webContents.send('scan:progress', { scanned: `Found ${potentialDuplicates.length} potential duplicate groups. Analyzing content...` });
+    
     // Hash them to confirm
+    let groupsProcessed = 0;
     for (const group of potentialDuplicates) {
       if (!isScanning) break;
+      groupsProcessed++;
+      if (groupsProcessed % 10 === 0) {
+         mainWindow.webContents.send('scan:progress', { scanned: `Hashing group ${groupsProcessed} of ${potentialDuplicates.length}...` });
+      }
+      
       const hashMap = new Map();
       for (const file of group) {
         if (!isScanning) break;

@@ -446,8 +446,9 @@ function finalizeDiskScanProcess() {
 
 if (window.api) {
   window.api.onScanProgress(({ scanned }) => {
-    scanProgress.textContent = `Scanned ${scanned.toLocaleString()} files...`;
-    document.getElementById('dupe-progress').textContent = `Scanned ${scanned.toLocaleString()} files...`;
+    const text = typeof scanned === 'number' ? `Scanned ${scanned.toLocaleString()} files...` : scanned;
+    scanProgress.textContent = text;
+    document.getElementById('dupe-progress').textContent = text;
   });
 
   window.api.onScanResult((file) => {
