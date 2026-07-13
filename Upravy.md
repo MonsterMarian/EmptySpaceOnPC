@@ -1,0 +1,1 @@
+je potřeba aby AI fungovalo a mělo přístup k souborům které chceme smazat taky u souborů navržených na smazaní bychom potřebovali mít ask AI button který se zeptá AI jestli je tento soubor OK na smazání
