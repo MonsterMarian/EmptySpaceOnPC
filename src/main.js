@@ -4,169 +4,6 @@ import { TreemapController, TreemapElement } from 'chartjs-chart-treemap';
 
 Chart.register(TreemapController, TreemapElement);
 
-document.querySelector('#app').innerHTML = `
-  <header>
-    <h1>SpaceFinder Premium V3</h1>
-    <p class="subtitle">Find and safely remove large unused files, duplicates, and system junk</p>
-  </header>
-
-  <div class="tabs">
-    <div class="tab active" data-target="tab-scanner">Large File Scanner</div>
-    <div class="tab" data-target="tab-duplicates">Duplicate Finder</div>
-    <div class="tab" data-target="tab-junk">System Junk Cleaner</div>
-    <div class="tab" data-target="tab-ai">AI Assistant</div>
-    <div style="flex:1;"></div>
-    <button id="btn-settings" class="secondary" style="padding: 0.5rem 1rem;">⚙ Settings</button>
-  </div>
-
-  <!-- TAB 1: Disk Scanner -->
-  <div id="tab-scanner" class="tab-content active">
-    <section class="panel">
-      <div class="presets-bar">
-        <button class="preset-btn" data-preset="videos">Forgotten Videos (>500MB)</button>
-        <button class="preset-btn" data-preset="installers">Old Installers (>100MB)</button>
-        <button class="preset-btn" data-preset="huge">Huge Files (>1GB, 90 Days)</button>
-      </div>
-
-      <div class="controls-grid">
-        <div class="input-group">
-          <label for="folder-path">Folder to scan</label>
-          <div style="display: flex; gap: 0.5rem;">
-            <input type="text" id="folder-path" value="C:\\" readonly style="flex: 1;" />
-            <button id="btn-select-folder" class="secondary" title="Select Folder">Choose Folder...</button>
-          </div>
-        </div>
-        
-        <div class="input-group">
-          <label for="min-size">Min Size (MB)</label>
-          <input type="number" id="min-size" value="100" min="1" />
-        </div>
-        
-        <div class="input-group">
-          <label for="min-days">Unused older than (days)</label>
-          <input type="number" id="min-days" value="30" min="0" />
-        </div>
-        
-      <!-- Action Bar -->
-      <div class="action-bar" style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-        <div style="flex:1;"></div> <!-- Spacer -->
-        <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
-          <span class="scan-progress" id="scan-progress"></span>
-          <div class="loader" id="loader"></div>
-          <button id="btn-start">Find Large Files</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel" id="results-panel" style="display: none;">
-      
-      <div class="chart-container" id="chart-container" style="display:none; flex-direction: row; flex-wrap: wrap;">
-        <div class="chart-box" style="flex: 1; min-width: 300px;">
-          <h3 style="text-align:center; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-muted);">By Category</h3>
-          <canvas id="categoryChart"></canvas>
-        </div>
-        <div class="chart-box" style="flex: 2; min-width: 400px; position: relative;">
-          <h3 style="text-align:center; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-muted);">By Directory</h3>
-          <canvas id="treemapChart"></canvas>
-        </div>
-      </div>
-
-      <div class="results-header">
-        <h2>Found Files</h2>
-        <div class="stats" id="scan-stats">0 files found</div>
-      </div>
-      
-      <div style="margin-bottom: 0.5rem; padding-left: 0.5rem; display: flex; align-items: center; gap: 1rem;">
-        <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--text-secondary); cursor:pointer;">
-          <input type="checkbox" id="select-all" /> Select All
-        </label>
-      </div>
-
-      <div class="file-cards-container" id="results-body">
-      </div>
-      
-      <div class="bottom-actions">
-        <button id="btn-delete-selected" class="danger" disabled>Move to Recycle Bin</button>
-      </div>
-    </section>
-  </div>
-
-  <!-- TAB 2: Duplicate Finder -->
-  <div id="tab-duplicates" class="tab-content">
-    <section class="panel">
-      <!-- Action Bar -->
-      <div class="action-bar" style="display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 1rem;">
-        <p>Select a folder to scan for identical duplicate files.</p>
-        <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
-          <span class="scan-progress" id="dupe-progress"></span>
-          <div class="loader" id="dupe-loader"></div>
-          <button id="btn-scan-dupes">Find Identical Duplicates</button>
-        </div>
-      </div>
-
-      <div id="dupe-results" style="margin-top: 1rem;"></div>
-      <div class="bottom-actions" style="margin-top:1rem;">
-        <button id="btn-delete-dupes" class="danger" style="display:none;">Trash Selected Duplicates</button>
-      </div>
-    </section>
-  </div>
-
-  <!-- TAB 3: Junk Cleaner -->
-  <div id="tab-junk" class="tab-content">
-    <section class="panel">
-      <!-- Action Bar -->
-      <div class="action-bar" style="display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 1rem;">
-        <p style="color:var(--text-secondary); font-size:0.9rem;">Scan system paths (Windows Temp, AppData caches) for safely removable junk.</p>
-        <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
-          <div class="loader" id="junk-loader"></div>
-          <button id="btn-scan-junk">Analyze System Caches</button>
-        </div>
-      </div>
-      
-      <div style="margin-top: 1.5rem; margin-bottom: 0.5rem; display:none;" id="junk-select-all-wrap">
-        <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--text-secondary); cursor:pointer;">
-          <input type="checkbox" id="junk-select-all" /> Select All Junk
-        </label>
-      </div>
-
-      <div class="file-cards-container" id="junk-results-body" style="display:none;">
-      </div>
-      <div class="bottom-actions">
-        <button id="btn-delete-junk" class="danger" style="display:none;">Clean Selected Junk</button>
-      </div>
-    </section>
-  </div>
-
-  <!-- TAB 4: AI Assistant -->
-  <div id="tab-ai" class="tab-content">
-    <section class="panel" style="display: flex; flex-direction: column; height: 500px;">
-      <div id="chat-messages" style="flex: 1; overflow-y: auto; padding-right: 1rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 1rem;">
-        <div class="chat-message assistant">
-          Hello! I am your SpaceFinder AI Assistant powered by Google Gemini 2.0 Flash via OpenRouter. How can I help you clean up your drive?
-        </div>
-      </div>
-      <div style="display: flex; gap: 0.5rem;">
-        <input type="text" id="ai-prompt-input" placeholder="Ask a question..." style="flex: 1;" />
-        <button id="btn-send-ai">Send</button>
-      </div>
-    </section>
-  </div>
-
-  <!-- Settings Modal -->
-  <div id="settings-modal" class="modal-overlay" style="display:none;">
-    <div class="modal-content panel">
-      <h2 style="margin-bottom: 1rem;">Settings</h2>
-      <div class="input-group">
-        <label for="nvidia-api-key">OpenRouter API Key</label>
-        <input type="password" id="nvidia-api-key" placeholder="sk-or-v1-..." />
-      </div>
-      <div class="bottom-actions" style="margin-top: 1rem;">
-        <button id="btn-close-settings" class="secondary">Close</button>
-      </div>
-    </div>
-  </div>
-`;
-
 // Helper: Format Bytes
 function formatBytes(bytes, decimals = 2) {
   if (!+bytes) return '0 Bytes';
@@ -282,13 +119,27 @@ btnSelectFolder.addEventListener('click', async () => {
 
 btnStart.addEventListener('click', async () => {
   if (!window.api) return;
-  if (isScanning) { await window.api.stopScan(); finalizeDiskScanProcess(); return; }
+  if (isScanning) {
+    await window.api.stopScan();
+    finalizeDiskScanProcess();
+    return;
+  }
 
-  isScanning = true; foundFiles = []; totalSize = 0; selectedPaths.clear(); updateDeleteBtn();
-  btnStart.textContent = 'Cancel Scan'; btnStart.classList.add('danger');
-  loader.style.display = 'block'; scanProgress.textContent = 'Analyzing disk...';
-  resultsPanel.style.display = 'block'; chartContainer.style.display = 'none';
-  resultsBody.innerHTML = ''; selectAllCheckbox.checked = false; refreshDiskScanStats();
+  isScanning = true;
+  foundFiles = [];
+  totalSize = 0;
+  selectedPaths.clear();
+  updateDeleteBtn();
+  
+  btnStart.textContent = 'Cancel Scan';
+  btnStart.classList.add('danger');
+  loader.style.display = 'block';
+  scanProgress.textContent = 'Analyzing disk...';
+  resultsPanel.style.display = 'block';
+  chartContainer.style.display = 'none';
+  resultsBody.innerHTML = '';
+  selectAllCheckbox.checked = false;
+  refreshDiskScanStats();
   
   await window.api.startScan({
     folderPath: folderPathInput.value,
@@ -309,13 +160,18 @@ btnDeleteSelected.addEventListener('click', () => {
     results.forEach(res => {
       if (res.success) {
         const idx = foundFiles.findIndex(f => f.path === res.path);
-        if (idx !== -1) { totalSize -= foundFiles[idx].size; foundFiles.splice(idx, 1); }
+        if (idx !== -1) {
+          totalSize -= foundFiles[idx].size;
+          foundFiles.splice(idx, 1);
+        }
         selectedPaths.delete(res.path);
         const row = document.getElementById('row-' + btoa(unescape(encodeURIComponent(res.path))).replace(/=/g, ''));
         if (row) row.remove();
       }
     });
-    refreshDiskScanStats(); updateDeleteBtn(); refreshVisualCharts();
+    refreshDiskScanStats();
+    updateDeleteBtn();
+    refreshVisualCharts();
   });
 });
 
@@ -444,6 +300,41 @@ function finalizeDiskScanProcess() {
   refreshVisualCharts();
 }
 
+// Event Delegation for Disk Scanner Results
+resultsBody.addEventListener('click', (e) => {
+  const target = e.target;
+  
+  // Handling open folder button
+  if (target.classList.contains('btn-open-folder')) {
+    window.api.openFolder(target.dataset.filePath);
+    return;
+  }
+  
+  // Handling file open (on file name)
+  if (target.classList.contains('file-name')) {
+    window.api.openFile(target.dataset.filePath);
+    return;
+  }
+
+  // Handling Ask AI button
+  if (target.classList.contains('ai-ask-btn')) {
+    askAiAboutFile(target.dataset.filePath, target.dataset.fileSize, target.dataset.fileName);
+    return;
+  }
+});
+
+resultsBody.addEventListener('change', (e) => {
+  if (e.target.classList.contains('row-checkbox')) {
+    const path = e.target.dataset.path;
+    if (e.target.checked) {
+      selectedPaths.add(path);
+    } else {
+      selectedPaths.delete(path);
+    }
+    updateDeleteBtn();
+  }
+});
+
 if (window.api) {
   window.api.onScanProgress(({ scanned }) => {
     const text = typeof scanned === 'number' ? `Scanned ${scanned.toLocaleString()} files...` : scanned;
@@ -451,42 +342,46 @@ if (window.api) {
     document.getElementById('dupe-progress').textContent = text;
   });
 
-  window.api.onScanResult((file) => {
-    file.category = getFileCategoryName(file.name);
-    foundFiles.push(file);
-    totalSize += file.size;
+  window.api.onScanResultsBatch((batch) => {
+    const fragment = document.createDocumentFragment();
     
-    const rowId = 'row-' + btoa(unescape(encodeURIComponent(file.path))).replace(/=/g, '');
-    const tr = document.createElement('tr');
-    tr.id = rowId;
-    
-    const safeInfo = checkSystemFileSafety(file.path);
-    tr.innerHTML = `
-      <div class="checkbox-wrapper">
-        <input type="checkbox" class="row-checkbox" data-path="${file.path.replace(/"/g, '&quot;')}" />
-      </div>
-      <div class="file-info">
-        <div class="file-name" title="Click to open file" onclick="window.api.openFile('${file.path.replace(/\\/g, '\\\\')}')">${file.name}</div>
-        <div class="file-meta">
-          <span class="badge ${safeInfo.class}">${safeInfo.text}</span>
-          <span class="badge category">${file.category}</span>
-          <span><strong>${formatBytes(file.size)}</strong></span>
-          <span>Used ${Math.floor(file.daysUnused)} days ago</span>
+    batch.forEach(file => {
+      file.category = getFileCategoryName(file.name);
+      foundFiles.push(file);
+      totalSize += file.size;
+      
+      const rowId = 'row-' + btoa(unescape(encodeURIComponent(file.path))).replace(/=/g, '');
+      const card = document.createElement('div');
+      card.className = 'file-card';
+      card.id = rowId;
+      
+      const safeInfo = checkSystemFileSafety(file.path);
+      const escapedPath = file.path.replace(/"/g, '&quot;');
+      const displayName = file.name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+      card.innerHTML = `
+        <div class="checkbox-wrapper">
+          <input type="checkbox" class="row-checkbox" data-path="${escapedPath}" />
         </div>
-        <div class="file-path">${file.path}</div>
-      </div>
-      <div class="file-actions">
-        <button class="secondary action-btn" onclick="window.api.openFolder('${file.path.replace(/\\/g, '\\\\')}')">Open Folder</button>
-        <button class="primary action-btn" onclick="askAiAboutFile('${file.path.replace(/\\/g, '\\\\')}', '${file.size}')">Ask AI</button>
-      </div>
-    `;
-    
-    tr.querySelector('.row-checkbox').addEventListener('change', (e) => {
-      if (e.target.checked) selectedPaths.add(file.path); else selectedPaths.delete(file.path);
-      updateDeleteBtn();
+        <div class="file-info">
+          <div class="file-name" title="Click to open file" data-file-path="${escapedPath}">${displayName}</div>
+          <div class="file-meta">
+            <span class="badge ${safeInfo.class}">${safeInfo.text}</span>
+            <span class="badge category">${file.category}</span>
+            <span><strong>${formatBytes(file.size)}</strong></span>
+            <span>Unused ${Math.floor(file.daysUnused)} days</span>
+          </div>
+          <div class="file-path">${file.path}</div>
+        </div>
+        <div class="file-actions">
+          <button class="secondary action-btn btn-open-folder" data-file-path="${escapedPath}">Open Folder</button>
+          <button class="ai-ask-btn action-btn" data-file-path="${escapedPath}" data-file-size="${file.size}" data-file-name="${displayName}">🤖 Ask AI</button>
+        </div>
+      `;
+      fragment.appendChild(card);
     });
     
-    resultsBody.appendChild(tr);
+    resultsBody.appendChild(fragment);
     refreshDiskScanStats();
   });
 
@@ -515,32 +410,53 @@ btnScanDupes.addEventListener('click', async () => {
   await window.api.startDuplicateScan(folderPathInput.value);
 });
 
+// Event Delegation for Duplicates
+dupeResults.addEventListener('change', (e) => {
+  if (e.target.classList.contains('dupe-cb')) {
+    const path = e.target.dataset.path;
+    if (e.target.checked) duplicatePaths.add(path);
+    else duplicatePaths.delete(path);
+    updateDupeDeleteBtn();
+  }
+});
+
+dupeResults.addEventListener('click', (e) => {
+  if (e.target.classList.contains('ai-ask-btn')) {
+    askAiAboutFile(e.target.dataset.filePath, e.target.dataset.fileSize, e.target.dataset.fileName);
+  }
+});
+
 if (window.api) {
-  window.api.onDuplicateResult(({ hash, files }) => {
-    const div = document.createElement('div');
-    div.className = 'duplicate-group';
-    div.innerHTML = `<h4>Duplicate Group (${formatBytes(files[0].size)})</h4>`;
+  window.api.onDuplicateBatch((batch) => {
+    const fragment = document.createDocumentFragment();
     
-    // Auto-select all but the first one
-    files.forEach((file, index) => {
-      const isChecked = index > 0;
-      if (isChecked) duplicatePaths.add(file.path);
+    batch.forEach(({ hash, files }) => {
+      const div = document.createElement('div');
+      div.className = 'duplicate-group';
+      div.innerHTML = `<h4>Duplicate Group (${formatBytes(files[0].size)})</h4>`;
       
-      const row = document.createElement('div');
-      row.className = 'dupe-row';
-      row.innerHTML = `
-        <input type="checkbox" class="dupe-cb" data-path="${file.path.replace(/"/g, '&quot;')}" ${isChecked ? 'checked' : ''} />
-        <span class="dupe-path">${file.path}</span>
-      `;
-      row.querySelector('.dupe-cb').addEventListener('change', (e) => {
-        if (e.target.checked) duplicatePaths.add(file.path);
-        else duplicatePaths.delete(file.path);
-        updateDupeDeleteBtn();
+      // Auto-select all but the first one
+      files.forEach((file, index) => {
+        const isChecked = index > 0;
+        if (isChecked) duplicatePaths.add(file.path);
+        
+        const row = document.createElement('div');
+        row.className = 'dupe-row';
+        const fileName = file.path.split('\\').pop().split('/').pop();
+        const escapedPath = file.path.replace(/"/g, '&quot;');
+        
+        row.innerHTML = `
+          <input type="checkbox" class="dupe-cb" data-path="${escapedPath}" ${isChecked ? 'checked' : ''} />
+          <span class="dupe-path" style="flex:1;">${file.path}</span>
+          <button class="ai-ask-btn action-btn" data-file-path="${escapedPath}" data-file-size="${file.size}" data-file-name="${fileName.replace(/"/g, '&quot;')}">🤖 Ask AI</button>
+        `;
+        div.appendChild(row);
       });
-      div.appendChild(row);
+      
+      fragment.appendChild(div);
     });
     
-    dupeResults.appendChild(div);
+    dupeResults.appendChild(fragment);
     refreshDuplicateDeleteButton();
   });
 }
@@ -586,27 +502,49 @@ btnScanJunk.addEventListener('click', async () => {
   await window.api.startJunkScan();
 });
 
+// Event Delegation for Junk
+junkResultsBody.addEventListener('change', (e) => {
+  if (e.target.classList.contains('junk-cb')) {
+    const path = e.target.dataset.path;
+    if (e.target.checked) junkPaths.add(path);
+    else junkPaths.delete(path);
+    refreshJunkDeleteButton();
+  }
+});
+
+junkResultsBody.addEventListener('click', (e) => {
+  if (e.target.classList.contains('ai-ask-btn')) {
+    askAiAboutFile(e.target.dataset.filePath, e.target.dataset.fileSize, e.target.dataset.fileName, true);
+  }
+});
+
 if (window.api) {
-  window.api.onJunkResult(({ type, path, size }) => {
-    const tr = document.createElement('div');
-    tr.className = 'file-card';
-    tr.innerHTML = `
-      <div class="checkbox-wrapper">
-        <input type="checkbox" class="junk-cb" data-path="${path.replace(/"/g, '&quot;')}" />
-      </div>
-      <div class="file-info">
-        <div class="file-name">${type}</div>
-        <div class="file-meta">
-          <span><strong>${formatBytes(size)}</strong></span>
+  window.api.onJunkBatch((batch) => {
+    const fragment = document.createDocumentFragment();
+    
+    batch.forEach(({ type, path, size }) => {
+      const tr = document.createElement('div');
+      tr.className = 'file-card';
+      const escapedPath = path.replace(/"/g, '&quot;');
+      tr.innerHTML = `
+        <div class="checkbox-wrapper">
+          <input type="checkbox" class="junk-cb" data-path="${escapedPath}" />
         </div>
-        <div class="file-path">${path}</div>
-      </div>
-    `;
-    tr.querySelector('.junk-cb').addEventListener('change', (e) => {
-      if (e.target.checked) junkPaths.add(path); else junkPaths.delete(path);
-      refreshJunkDeleteButton();
+        <div class="file-info">
+          <div class="file-name">${type}</div>
+          <div class="file-meta">
+            <span><strong>${formatBytes(size)}</strong></span>
+          </div>
+          <div class="file-path">${path}</div>
+        </div>
+        <div class="file-actions">
+          <button class="ai-ask-btn action-btn" data-file-path="${escapedPath}" data-file-size="${size}" data-file-name="${type.replace(/"/g, '&quot;')}">🤖 Ask AI</button>
+        </div>
+      `;
+      fragment.appendChild(tr);
     });
-    junkResultsBody.appendChild(tr);
+    
+    junkResultsBody.appendChild(fragment);
   });
 }
 
@@ -703,18 +641,44 @@ aiPromptInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendAiMessage();
 });
 
-window.askAiAboutFile = function(filePath, sizeBytes) {
+window.askAiAboutFile = async function(filePath, sizeBytes, fileName, isDirectory = false) {
   // Switch to AI tab
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   const aiTab = document.querySelector('[data-target="tab-ai"]');
   aiTab.classList.add('active');
   document.getElementById('tab-ai').classList.add('active');
-  
-  // Format prompt
+
+  // Show loading state in chat
+  const loadingNote = document.createElement('div');
+  loadingNote.className = 'chat-message assistant';
+  loadingNote.textContent = `Loading metadata for: ${fileName || filePath.split('\\').pop()}...`;
+  chatMessages.appendChild(loadingNote);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  // Fetch real metadata from disk
+  let metaContext = '';
+  if (window.api && window.api.getFileMetadata) {
+    try {
+      const meta = await window.api.getFileMetadata(filePath);
+      if (!meta.error) {
+        metaContext += `\n- Extension: ${meta.extension || '(none)'}\n- Size: ${formatBytes(meta.size)}\n- Created: ${new Date(meta.created).toLocaleString()}\n- Modified: ${new Date(meta.modified).toLocaleString()}\n- Last Accessed: ${new Date(meta.accessed).toLocaleString()}`;
+        if (meta.preview) {
+          metaContext += `\n- Content Preview (first 500 chars):\n\`\`\`\n${meta.preview}\n\`\`\``;
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching metadata for AI:', e);
+    }
+  }
+
+  loadingNote.remove();
+
+  // Build rich prompt
   const sizeFormatted = formatBytes(sizeBytes);
-  const prompt = `I found a file on my computer and I want to free up space. Is it safe to delete this file? Please explain what it is and any risks of deleting it.\n\nFile Path: ${filePath}\nSize: ${sizeFormatted}`;
-  
+  const fileType = isDirectory ? 'directory/cache on disk' : 'file';
+  const prompt = `Please analyze this ${fileType} and tell me:\n1. What is this ${fileType} and what is its purpose?\n2. Is it safe to delete it?\n3. What are the risks of deleting it?\n4. Do you recommend deleting it to free up space?\n\nPath: ${filePath}\nName: ${fileName || filePath.split('\\').pop()}${metaContext}`;
+
   // Insert and send
   aiPromptInput.value = prompt;
   sendAiMessage();

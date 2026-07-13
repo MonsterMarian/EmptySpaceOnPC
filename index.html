@@ -8,7 +8,168 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <header>
+        <h1>SpaceFinder Premium V3</h1>
+        <p class="subtitle">Find and safely remove large unused files, duplicates, and system junk</p>
+      </header>
+
+      <div class="tabs">
+        <div class="tab active" data-target="tab-scanner">Large File Scanner</div>
+        <div class="tab" data-target="tab-duplicates">Duplicate Finder</div>
+        <div class="tab" data-target="tab-junk">System Junk Cleaner</div>
+        <div class="tab" data-target="tab-ai">AI Assistant</div>
+        <div style="flex:1;"></div>
+        <button id="btn-settings" class="secondary" style="padding: 0.5rem 1rem;">⚙ Settings</button>
+      </div>
+
+      <!-- TAB 1: Disk Scanner -->
+      <div id="tab-scanner" class="tab-content active">
+        <section class="panel">
+          <div class="presets-bar">
+            <button class="preset-btn" data-preset="videos">Forgotten Videos (>500MB)</button>
+            <button class="preset-btn" data-preset="installers">Old Installers (>100MB)</button>
+            <button class="preset-btn" data-preset="huge">Huge Files (>1GB, 90 Days)</button>
+          </div>
+
+          <div class="controls-grid">
+            <div class="input-group">
+              <label for="folder-path">Folder to scan</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="folder-path" value="C:\\" readonly style="flex: 1;" />
+                <button id="btn-select-folder" class="secondary" title="Select Folder">Choose Folder...</button>
+              </div>
+            </div>
+            
+            <div class="input-group">
+              <label for="min-size">Min Size (MB)</label>
+              <input type="number" id="min-size" value="100" min="1" />
+            </div>
+            
+            <div class="input-group">
+              <label for="min-days">Unused older than (days)</label>
+              <input type="number" id="min-days" value="30" min="0" />
+            </div>
+            
+          <!-- Action Bar -->
+          <div class="action-bar" style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div style="flex:1;"></div> <!-- Spacer -->
+            <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
+              <span class="scan-progress" id="scan-progress"></span>
+              <div class="loader" id="loader"></div>
+              <button id="btn-start">Find Large Files</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="results-panel" style="display: none;">
+          
+          <div class="chart-container" id="chart-container" style="display:none; flex-direction: row; flex-wrap: wrap;">
+            <div class="chart-box" style="flex: 1; min-width: 300px;">
+              <h3 style="text-align:center; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-muted);">By Category</h3>
+              <canvas id="categoryChart"></canvas>
+            </div>
+            <div class="chart-box" style="flex: 2; min-width: 400px; position: relative;">
+              <h3 style="text-align:center; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-muted);">By Directory</h3>
+              <canvas id="treemapChart"></canvas>
+            </div>
+          </div>
+
+          <div class="results-header">
+            <h2>Found Files</h2>
+            <div class="stats" id="scan-stats">0 files found</div>
+          </div>
+          
+          <div style="margin-bottom: 0.5rem; padding-left: 0.5rem; display: flex; align-items: center; gap: 1rem;">
+            <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--text-secondary); cursor:pointer;">
+              <input type="checkbox" id="select-all" /> Select All
+            </label>
+          </div>
+
+          <div class="file-cards-container" id="results-body">
+          </div>
+          
+          <div class="bottom-actions">
+            <button id="btn-delete-selected" class="danger" disabled>Move to Recycle Bin</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- TAB 2: Duplicate Finder -->
+      <div id="tab-duplicates" class="tab-content">
+        <section class="panel">
+          <!-- Action Bar -->
+          <div class="action-bar" style="display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 1rem;">
+            <p>Select a folder to scan for identical duplicate files.</p>
+            <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
+              <span class="scan-progress" id="dupe-progress"></span>
+              <div class="loader" id="dupe-loader"></div>
+              <button id="btn-scan-dupes">Find Identical Duplicates</button>
+            </div>
+          </div>
+
+          <div id="dupe-results" style="margin-top: 1rem;"></div>
+          <div class="bottom-actions" style="margin-top:1rem;">
+            <button id="btn-delete-dupes" class="danger" style="display:none;">Trash Selected Duplicates</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- TAB 3: Junk Cleaner -->
+      <div id="tab-junk" class="tab-content">
+        <section class="panel">
+          <!-- Action Bar -->
+          <div class="action-bar" style="display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 1rem;">
+            <p style="color:var(--text-secondary); font-size:0.9rem;">Scan system paths (Windows Temp, AppData caches) for safely removable junk.</p>
+            <div class="action-info" style="display: flex; align-items: center; gap: 1rem;">
+              <div class="loader" id="junk-loader"></div>
+              <button id="btn-scan-junk">Analyze System Caches</button>
+            </div>
+          </div>
+          
+          <div style="margin-top: 1.5rem; margin-bottom: 0.5rem; display:none;" id="junk-select-all-wrap">
+            <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--text-secondary); cursor:pointer;">
+              <input type="checkbox" id="junk-select-all" /> Select All Junk
+            </label>
+          </div>
+
+          <div class="file-cards-container" id="junk-results-body" style="display:none;">
+          </div>
+          <div class="bottom-actions">
+            <button id="btn-delete-junk" class="danger" style="display:none;">Clean Selected Junk</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- TAB 4: AI Assistant -->
+      <div id="tab-ai" class="tab-content">
+        <section class="panel" style="display: flex; flex-direction: column; height: 500px;">
+          <div id="chat-messages" style="flex: 1; overflow-y: auto; padding-right: 1rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+            <div class="chat-message assistant">
+              Hello! I am your SpaceFinder AI Assistant powered by Google Gemini 2.0 Flash via OpenRouter. How can I help you clean up your drive?
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" id="ai-prompt-input" placeholder="Ask a question..." style="flex: 1;" />
+            <button id="btn-send-ai">Send</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Settings Modal -->
+      <div id="settings-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content panel">
+          <h2 style="margin-bottom: 1rem;">Settings</h2>
+          <div class="input-group">
+            <label for="nvidia-api-key">OpenRouter API Key</label>
+            <input type="password" id="nvidia-api-key" placeholder="sk-or-v1-..." />
+          </div>
+          <div class="bottom-actions" style="margin-top: 1rem;">
+            <button id="btn-close-settings" class="secondary">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

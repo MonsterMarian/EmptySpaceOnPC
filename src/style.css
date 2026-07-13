@@ -342,6 +342,20 @@ button:disabled {
   font-size: 0.8rem;
 }
 
+.ai-ask-btn {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+}
+.ai-ask-btn:hover {
+  background: rgba(139, 92, 246, 0.9);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  transform: translateY(-1px);
+}
+
 /* Badges */
 .badge {
   display: inline-block;

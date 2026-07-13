@@ -9,10 +9,11 @@ contextBridge.exposeInMainWorld('api', {
   startJunkScan: () => ipcRenderer.invoke('scan:junk'),
   trashFiles: (paths) => ipcRenderer.invoke('file:trash', paths),
   openFile: (path) => ipcRenderer.invoke('shell:openFile', path),
-  onScanResult: (callback) => ipcRenderer.on('scan:result', (_event, value) => callback(value)),
-  onDuplicateResult: (callback) => ipcRenderer.on('scan:duplicateResult', (_event, value) => callback(value)),
-  onJunkResult: (callback) => ipcRenderer.on('scan:junkResult', (_event, value) => callback(value)),
+  onScanResultsBatch: (callback) => ipcRenderer.on('scan:resultsBatch', (_event, value) => callback(value)),
+  onDuplicateBatch: (callback) => ipcRenderer.on('scan:duplicateBatch', (_event, value) => callback(value)),
+  onJunkBatch: (callback) => ipcRenderer.on('scan:junkBatch', (_event, value) => callback(value)),
   onScanComplete: (callback) => ipcRenderer.on('scan:complete', () => callback()),
   onScanProgress: (callback) => ipcRenderer.on('scan:progress', (_event, value) => callback(value)),
-  askAI: (data) => ipcRenderer.invoke('ai:ask', data)
+  askAI: (data) => ipcRenderer.invoke('ai:ask', data),
+  getFileMetadata: (filePath) => ipcRenderer.invoke('file:getMetadata', filePath)
 });
